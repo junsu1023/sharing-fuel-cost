@@ -21,7 +21,7 @@ import retrofit2.http.Query
 import java.math.BigDecimal
 import java.net.URLDecoder
 
-private const val PAGE_SIZE = 50
+private const val PAGE_SIZE = 100
 private const val RESULT_OK = "00"
 private const val RESULT_NO_DATA = "03"
 private val NUMBER = Regex("""\d+(\.\d+)?""")
@@ -37,7 +37,7 @@ internal interface VehicleService {
     ): JsonElement
 }
 
-/** 문서에 JSON 예시가 없어 response 감싸기와 item의 배열, 단일 객체를 모두 받는다. */
+/** 실제 응답은 response.body.items.item[]이다. 결과가 없으면 item이 없고, 한 건일 때를 대비해 단일 객체도 받는다. */
 internal fun JsonElement.toVehicles(): LookupResult<List<VehicleFuelEconomy>> {
     val root = this as? JsonObject ?: return LookupResult.Failure(LookupFailure.UNEXPECTED)
     val response = root["response"] as? JsonObject ?: root

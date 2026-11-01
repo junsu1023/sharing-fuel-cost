@@ -159,12 +159,11 @@ internal fun NameAvatar(name: String, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun BottomActions(
-    tonalLabel: String,
-    onTonal: () -> Unit,
     filledLabel: String,
     onFilled: () -> Unit,
     filledEnabled: Boolean = true,
-    tonalEnabled: Boolean = true,
+    tonalLabel: String? = null,
+    onTonal: () -> Unit = {},
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(
@@ -174,12 +173,13 @@ internal fun BottomActions(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FilledTonalButton(
-                onClick = onTonal,
-                enabled = tonalEnabled,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.weight(1f).heightIn(min = 56.dp),
-            ) { Text(tonalLabel) }
+            if (tonalLabel != null) {
+                FilledTonalButton(
+                    onClick = onTonal,
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.weight(1f).heightIn(min = 56.dp),
+                ) { Text(tonalLabel) }
+            }
             Button(
                 onClick = onFilled,
                 enabled = filledEnabled,

@@ -136,16 +136,71 @@ class FuelCostViewModelTest {
     }
 
     @Test
-    fun `changing route clears looked up distances but not manual ones`() {
-        val id = routeWithOneRider()
-        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
-        selectPlace(LocationField.RiderPickup(id))
+    fun `distances fill automatically once all locations have coordinates`() {
+        selectPlace(LocationField.Origin)
         assertEquals("", state.totalDistanceKm)
         assertEquals(DistanceLookupState.Idle, state.distanceLookup)
 
+        selectPlace(LocationField.Destination)
+        assertEquals(DistanceLookupState.Success, state.distanceLookup)
+        assertEquals("256.734", state.totalDistanceKm)
+    }
+
+    @Test
+    fun `adding rider clears distances until pickup is chosen then looks up again`() {
+        selectPlace(LocationField.Origin)
+        selectPlace(LocationField.Destination)
+
+        viewModel.onIntent(FuelCostIntent.AddRider)
+        assertEquals("", state.totalDistanceKm)
+        assertEquals(DistanceLookupState.Idle, state.distanceLookup)
+
+        selectPlace(LocationField.RiderPickup(state.riders.single().id))
+        assertEquals("256.734", state.totalDistanceKm)
+        assertEquals("250.316", state.riders.single().distanceKm)
+    }
+
+    @Test
+    fun `manual edit survives until route changes and is then replaced`() {
+        val id = routeWithOneRider()
+        viewModel.onIntent(FuelCostIntent.TotalDistanceChanged("300"))
+        assertEquals("300", state.totalDistanceKm)
+
+        selectPlace(LocationField.RiderPickup(id))
+        assertEquals("256.734", state.totalDistanceKm)
+    }
+
+    @Test
+    fun `route change with failed lookup does not keep previous route distance`() {
+        val id = routeWithOneRider()
+        routeResult = LookupResult.Failure(LookupFailure.NETWORK)
+        selectPlace(LocationField.RiderPickup(id))
+        assertEquals("", state.totalDistanceKm)
+        assertEquals(DistanceLookupState.Failed(LookupFailure.NETWORK), state.distanceLookup)
+
+        routeResult = LookupResult.Success(RouteDistances(1_000, listOf(500)))
+        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
+        assertEquals("1", state.totalDistanceKm)
+    }
+
+    @Test
+    fun `typed distances stay when route has no coordinates`() {
+        enterAddress(LocationField.Origin, "직접 입력")
         viewModel.onIntent(FuelCostIntent.TotalDistanceChanged("100"))
         selectPlace(LocationField.Destination)
         assertEquals("100", state.totalDistanceKm)
+        assertEquals(DistanceLookupState.MissingLocation, state.distanceLookup)
+    }
+
+    @Test
+    fun `cannot calculate while lookup is running`() {
+        fillValidInput()
+        selectPlace(LocationField.Origin)
+        routeGate = CompletableDeferred()
+        selectPlace(LocationField.Destination)
+        assertEquals(DistanceLookupState.Loading, state.distanceLookup)
+        assertFalse(state.canCalculate)
+        routeGate?.complete(Unit)
     }
 
     @Test
@@ -226,6 +281,7 @@ class FuelCostViewModelTest {
 
     @Test
     fun `lookup sends pickups in rider order and fills distances by that order`() {
+        routeResult = LookupResult.Success(RouteDistances(3_000, listOf(2_000, 1_000)))
         selectPlace(LocationField.Origin)
         selectPlace(LocationField.Destination)
         val first = GeoPoint(1.0, 1.0)
