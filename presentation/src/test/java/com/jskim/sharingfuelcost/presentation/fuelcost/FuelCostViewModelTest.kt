@@ -243,9 +243,9 @@ class FuelCostViewModelTest {
     fun `typing searches after debounce and only for the latest text`() {
         viewModel.onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Destination))
         viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강"))
-        dispatcher.scheduler.advanceTimeBy(50)
+        dispatcher.scheduler.advanceTimeBy(100)
         viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남"))
-        dispatcher.scheduler.advanceTimeBy(99)
+        dispatcher.scheduler.advanceTimeBy(299)
         dispatcher.scheduler.runCurrent()
         assertEquals(0, searchCalls)
 
