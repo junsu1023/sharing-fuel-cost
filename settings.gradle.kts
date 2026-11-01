@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -24,4 +25,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "SharingFuelCost"
 include(":app")
- 
+include(":presentation")
+include(":data")
+include(":domain")

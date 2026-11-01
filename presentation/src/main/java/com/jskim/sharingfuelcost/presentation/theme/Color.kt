@@ -1,4 +1,4 @@
-package com.jskim.sharingfuelcost.ui.theme
+package com.jskim.sharingfuelcost.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 

@@ -1,4 +1,4 @@
-package com.jskim.sharingfuelcost.ui.theme
+package com.jskim.sharingfuelcost.presentation.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
