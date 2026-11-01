@@ -27,7 +27,7 @@ import java.math.RoundingMode
 import javax.inject.Inject
 import kotlin.math.abs
 
-private const val SEARCH_DEBOUNCE_MILLIS = 100L
+private const val SEARCH_DEBOUNCE_MILLIS = 300L
 
 /** 카메라 좌표에 생기는 작은 오차를 무시하는 범위(약 20m) */
 private const val SAME_POINT_DEGREES = 0.0002
