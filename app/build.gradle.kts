@@ -13,6 +13,7 @@ val localProperties = Properties().apply {
 val kakaoRestApiKey: String = localProperties.getProperty("kakao_rest_api_key").orEmpty()
 val kakaoNativeAppKey: String = localProperties.getProperty("kakao_native_app_key").orEmpty()
 val opinetApiKey: String = localProperties.getProperty("opinet_api_key").orEmpty()
+val dataGoKrApiKey: String = localProperties.getProperty("data_go_kr_api_key").orEmpty()
 
 android {
     namespace = "com.jskim.sharingfuelcost"
@@ -25,6 +26,7 @@ android {
         buildConfigField("String", "KAKAO_REST_API_KEY", "\"$kakaoRestApiKey\"")
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoNativeAppKey\"")
         buildConfigField("String", "OPINET_API_KEY", "\"$opinetApiKey\"")
+        buildConfigField("String", "DATA_GO_KR_API_KEY", "\"$dataGoKrApiKey\"")
     }
 
     buildFeatures {

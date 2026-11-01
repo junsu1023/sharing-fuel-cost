@@ -3,6 +3,8 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
+import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
+import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -39,6 +41,7 @@ class FuelCostViewModel @Inject constructor(
     private val placeSearchRepository: PlaceSearchRepository,
     private val currentLocationRepository: CurrentLocationRepository,
     private val fuelPriceRepository: FuelPriceRepository,
+    private val vehicleRepository: VehicleRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FuelCostUiState())
@@ -49,6 +52,7 @@ class FuelCostViewModel @Inject constructor(
     private var searchJob: Job? = null
     private var mapJob: Job? = null
     private var locationJob: Job? = null
+    private var vehicleJob: Job? = null
 
     /** 검색으로 고른 장소. 카메라 이동이 끝나도 이름을 주소로 덮어쓰지 않게 기억한다. */
     private var pendingMapPlace: Place? = null
@@ -71,6 +75,9 @@ class FuelCostViewModel @Inject constructor(
             FuelCostIntent.DistanceLookupClicked -> lookupDistances()
             FuelCostIntent.SearchSubmitted -> searchPlaces()
             is FuelCostIntent.SearchQueryChanged -> onSearchQueryChanged(intent.value)
+            is FuelCostIntent.VehicleQueryChanged -> onVehicleQueryChanged(intent.value)
+            FuelCostIntent.VehicleSearchSubmitted -> searchVehicles()
+            is FuelCostIntent.VehicleSelected -> selectVehicle(intent.vehicle)
             is FuelCostIntent.MapPlaceSelected -> selectMapPlace(intent.place)
             FuelCostIntent.AddRider -> if (_uiState.value.canAddRider) {
                 val rider = RiderInput(nextRiderId++)
@@ -92,6 +99,7 @@ class FuelCostViewModel @Inject constructor(
             FuelCostIntent.Back -> {
                 searchJob?.cancel()
                 mapJob?.cancel()
+                vehicleJob?.cancel()
                 _uiState.update { it.copy(screen = FuelCostScreen.Input) }
             }
             else -> _uiState.update { reduce(it, intent) }
@@ -102,7 +110,13 @@ class FuelCostViewModel @Inject constructor(
         is FuelCostIntent.RiderNameChanged -> state.updateRider(intent.id) { it.copy(name = intent.value) }
         is FuelCostIntent.RiderDistanceChanged ->
             state.updateRider(intent.id) { it.copy(distanceKm = intent.value.decimalOnly()) }.manualDistance()
-        is FuelCostIntent.KmPerLiterChanged -> state.copy(kmPerLiter = intent.value.decimalOnly())
+        is FuelCostIntent.KmPerLiterChanged ->
+            state.copy(kmPerLiter = intent.value.decimalOnly(), selectedVehicle = null)
+        FuelCostIntent.OpenVehicleSearch -> state.copy(
+            screen = FuelCostScreen.VehicleSearch,
+            vehicleQuery = "",
+            vehicleSearch = VehicleSearchState.Idle,
+        )
         is FuelCostIntent.WonPerLiterChanged ->
             state.copy(wonPerLiter = intent.value.decimalOnly(), wonPerLiterEdited = true)
         is FuelCostIntent.FuelTypeSelected -> state.copy(fuelType = intent.type).withAveragePriceIfNotEdited()
@@ -192,6 +206,57 @@ class FuelCostViewModel @Inject constructor(
                     is LookupResult.Failure -> AddressSearchState.Failed(result.reason)
                 },
             )
+        }
+    }
+
+    private fun onVehicleQueryChanged(value: String) {
+        if (value == _uiState.value.vehicleQuery) return
+        vehicleJob?.cancel()
+        _uiState.update { state ->
+            state.copy(
+                vehicleQuery = value,
+                vehicleSearch = if (value.isBlank()) VehicleSearchState.Idle else state.vehicleSearch,
+            )
+        }
+        if (value.isBlank()) return
+        vehicleJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            runVehicleSearch(value.trim())
+        }
+    }
+
+    private fun searchVehicles() {
+        val query = _uiState.value.vehicleQuery.trim()
+        if (query.isEmpty()) return
+        vehicleJob?.cancel()
+        vehicleJob = viewModelScope.launch { runVehicleSearch(query) }
+    }
+
+    private suspend fun runVehicleSearch(query: String) {
+        _uiState.update { state ->
+            if (state.vehicleSearch is VehicleSearchState.Results) state
+            else state.copy(vehicleSearch = VehicleSearchState.Loading)
+        }
+        val result = vehicleRepository.search(query)
+        _uiState.update {
+            it.copy(
+                vehicleSearch = when (result) {
+                    is LookupResult.Success -> VehicleSearchState.Results(result.value)
+                    is LookupResult.Failure -> VehicleSearchState.Failed(result.reason)
+                },
+            )
+        }
+    }
+
+    private fun selectVehicle(vehicle: VehicleFuelEconomy) {
+        vehicleJob?.cancel()
+        _uiState.update { state ->
+            state.copy(
+                screen = FuelCostScreen.Input,
+                selectedVehicle = vehicle,
+                kmPerLiter = vehicle.kmPerLiter.toPlainString(),
+                fuelType = vehicle.fuelType,
+            ).withAveragePriceIfNotEdited()
         }
     }
 

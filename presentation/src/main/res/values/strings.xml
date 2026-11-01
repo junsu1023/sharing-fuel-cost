@@ -9,6 +9,16 @@
     <string name="section_route">어디로 떠나나요?</string>
     <string name="section_participants">누구를 태우고 가나요?</string>
     <string name="section_fuel">연비와 유가를 확인해 주세요</string>
+    <string name="label_my_vehicle">내 차</string>
+    <string name="placeholder_vehicle">차종을 검색하면 연비를 채워요</string>
+    <string name="action_search_vehicle">차종 검색</string>
+    <string name="vehicle_search_title">차종 검색</string>
+    <string name="label_vehicle_model">모델명</string>
+    <string name="vehicle_search_hint">아반떼처럼 모델명을 입력해 주세요. 전기차와 수소차는 연비 단위가 달라 나오지 않아요</string>
+    <string name="vehicle_search_empty">찾은 차종이 없어요. 연비를 직접 입력해 주세요</string>
+    <string name="vehicle_not_configured">차종 검색 인증키가 설정되지 않았어요. 연비를 직접 입력해 주세요</string>
+    <string name="vehicle_row_detail">%1$s · %2$s · %3$s km/L</string>
+    <string name="vehicle_selected_detail">%1$s · %2$s · 표시연비 %3$s km/L</string>
     <string name="fuel_gasoline">휘발유</string>
     <string name="fuel_diesel">경유</string>
     <string name="fuel_lpg">LPG</string>
