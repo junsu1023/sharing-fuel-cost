@@ -36,12 +36,17 @@ class FuelCostViewModelTest {
     private var reverseResult: LookupResult<Place?> = LookupResult.Success(Place("지도 건물", "지도 주소", point))
     private var locationResult: LookupResult<GeoPoint> = LookupResult.Success(point)
 
+    private var lastPickups: List<GeoPoint> = emptyList()
+
     private val viewModel by lazy {
         FuelCostViewModel(
             SettlementCalculator(),
             object : RouteDistanceRepository {
                 override suspend fun fetchDistances(origin: GeoPoint, destination: GeoPoint, pickups: List<GeoPoint>) =
-                    routeResult.also { routeGate?.await() }
+                    routeResult.also {
+                        lastPickups = pickups
+                        routeGate?.await()
+                    }
             },
             object : PlaceSearchRepository {
                 override suspend fun search(query: String) = searchResult
@@ -199,6 +204,29 @@ class FuelCostViewModelTest {
         enterAddress(LocationField.Origin, "직접 입력")
         assertEquals("직접 입력", state.origin)
         assertEquals(CurrentLocationState.Idle, state.currentLocation)
+    }
+
+    @Test
+    fun `lookup sends pickups in rider order and fills distances by that order`() {
+        selectPlace(LocationField.Origin)
+        selectPlace(LocationField.Destination)
+        val first = GeoPoint(1.0, 1.0)
+        val second = GeoPoint(2.0, 2.0)
+        listOf(first, second).forEach { pickup ->
+            viewModel.onIntent(FuelCostIntent.AddRider)
+            val id = state.riders.last().id
+            viewModel.onIntent(FuelCostIntent.OpenAddressSearch(LocationField.RiderPickup(id)))
+            viewModel.onIntent(FuelCostIntent.PlaceSelected(Place("위치", "주소", pickup)))
+        }
+        viewModel.onIntent(FuelCostIntent.MoveRider(state.riders.last().id, -1))
+        routeResult = LookupResult.Success(RouteDistances(3_000, listOf(2_000, 1_000)))
+
+        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
+
+        assertEquals(listOf(second, first), lastPickups)
+        assertEquals(second, state.riders[0].pickupPoint)
+        assertEquals("2", state.riders[0].distanceKm)
+        assertEquals("1", state.riders[1].distanceKm)
     }
 
     @Test
