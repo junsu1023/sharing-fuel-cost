@@ -2,6 +2,7 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 
 import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
+import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.Place
@@ -22,6 +23,7 @@ sealed interface FuelCostScreen {
     data object Result : FuelCostScreen
     data class AddressSearch(val field: LocationField) : FuelCostScreen
     data class MapPicker(val field: LocationField) : FuelCostScreen
+    data object VehicleSearch : FuelCostScreen
 }
 
 data class RiderInput(
@@ -64,6 +66,13 @@ sealed interface CurrentLocationState {
     data class Failed(val reason: LookupFailure) : CurrentLocationState
 }
 
+sealed interface VehicleSearchState {
+    data object Idle : VehicleSearchState
+    data object Loading : VehicleSearchState
+    data class Results(val vehicles: List<VehicleFuelEconomy>) : VehicleSearchState
+    data class Failed(val reason: LookupFailure) : VehicleSearchState
+}
+
 sealed interface FuelPriceState {
     data object Loading : FuelPriceState
     data class Loaded(val prices: List<AverageFuelPrice>) : FuelPriceState
@@ -78,6 +87,9 @@ data class FuelCostUiState(
     val destinationPoint: GeoPoint? = null,
     val riders: List<RiderInput> = emptyList(),
     val kmPerLiter: String = "",
+    val selectedVehicle: VehicleFuelEconomy? = null,
+    val vehicleQuery: String = "",
+    val vehicleSearch: VehicleSearchState = VehicleSearchState.Idle,
     val wonPerLiter: String = "",
     val fuelType: FuelType = FuelType.GASOLINE,
     val fuelPrice: FuelPriceState = FuelPriceState.Loading,
@@ -147,6 +159,10 @@ sealed interface FuelCostIntent {
     data class PlaceSelected(val place: Place) : FuelCostIntent
     /** 검색 없이 입력한 내용을 쓴다. 좌표가 없어 자동 거리 조회는 할 수 없다. */
     data object ConfirmAddress : FuelCostIntent
+    data object OpenVehicleSearch : FuelCostIntent
+    data class VehicleQueryChanged(val value: String) : FuelCostIntent
+    data object VehicleSearchSubmitted : FuelCostIntent
+    data class VehicleSelected(val vehicle: VehicleFuelEconomy) : FuelCostIntent
     data class MapCameraIdle(val point: GeoPoint) : FuelCostIntent
     data class MapPlaceSelected(val place: Place) : FuelCostIntent
     data class FuelTypeSelected(val type: FuelType) : FuelCostIntent

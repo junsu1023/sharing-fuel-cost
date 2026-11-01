@@ -74,6 +74,16 @@ internal fun InputScreen(
             RouteSection(state, onIntent, onUseCurrentLocation)
             ParticipantsSection(state, onIntent)
             FuelSection(stringResource(R.string.section_fuel)) {
+                LocationRow(
+                    label = stringResource(R.string.label_my_vehicle),
+                    value = state.selectedVehicle?.displayName().orEmpty(),
+                    placeholder = stringResource(R.string.placeholder_vehicle),
+                    action = stringResource(R.string.action_search_vehicle),
+                    onAction = { onIntent(FuelCostIntent.OpenVehicleSearch) },
+                    supporting = state.selectedVehicle?.let {
+                        stringResource(R.string.vehicle_selected_detail, it.year, it.fuelName, it.kmPerLiter.toPlainString())
+                    },
+                )
                 FuelTypeSelector(state.fuelType, onIntent)
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     FuelTextField(

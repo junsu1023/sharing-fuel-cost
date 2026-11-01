@@ -3,6 +3,8 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
+import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
+import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -41,6 +43,9 @@ class FuelCostViewModelTest {
 
     private var lastPickups: List<GeoPoint> = emptyList()
     private var searchCalls = 0
+    private var vehicleCalls = 0
+    private val diesel = VehicleFuelEconomy("기아", "쏘렌토", "2023", "경유", FuelType.DIESEL, "14.3".toBigDecimal())
+    private var vehicleResult: LookupResult<List<VehicleFuelEconomy>> = LookupResult.Success(listOf(diesel))
     private val dispatcher = UnconfinedTestDispatcher()
     private var fuelPriceResult: LookupResult<List<AverageFuelPrice>> =
         LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
@@ -64,6 +69,9 @@ class FuelCostViewModelTest {
             },
             object : FuelPriceRepository {
                 override suspend fun averagePrices() = fuelPriceResult
+            },
+            object : VehicleRepository {
+                override suspend fun search(modelName: String) = vehicleResult.also { vehicleCalls++ }
             },
         )
     }
@@ -367,6 +375,54 @@ class FuelCostViewModelTest {
         viewModel.onIntent(FuelCostIntent.Back)
         assertEquals(before, state.destination)
         assertEquals(FuelCostScreen.Input, state.screen)
+    }
+
+    @Test
+    fun `vehicle search debounces and selection fills economy fuel type and average price`() {
+        fuelPriceResult = prices()
+        assertEquals("1668", state.wonPerLiter)
+        viewModel.onIntent(FuelCostIntent.OpenVehicleSearch)
+        viewModel.onIntent(FuelCostIntent.VehicleQueryChanged("쏘"))
+        viewModel.onIntent(FuelCostIntent.VehicleQueryChanged("쏘렌토"))
+        dispatcher.scheduler.advanceTimeBy(301)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, vehicleCalls)
+        assertEquals(VehicleSearchState.Results(listOf(diesel)), state.vehicleSearch)
+
+        viewModel.onIntent(FuelCostIntent.VehicleSelected(diesel))
+        assertEquals(FuelCostScreen.Input, state.screen)
+        assertEquals("14.3", state.kmPerLiter)
+        assertEquals(FuelType.DIESEL, state.fuelType)
+        assertEquals("1500", state.wonPerLiter)
+        assertEquals(diesel, state.selectedVehicle)
+    }
+
+    @Test
+    fun `selecting vehicle keeps manually edited price`() {
+        fuelPriceResult = prices()
+        viewModel.onIntent(FuelCostIntent.WonPerLiterChanged("1700"))
+        viewModel.onIntent(FuelCostIntent.VehicleSelected(diesel))
+        assertEquals("1700", state.wonPerLiter)
+    }
+
+    @Test
+    fun `editing economy clears selected vehicle`() {
+        viewModel.onIntent(FuelCostIntent.VehicleSelected(diesel))
+        viewModel.onIntent(FuelCostIntent.KmPerLiterChanged("10"))
+        assertEquals("10", state.kmPerLiter)
+        assertNull(state.selectedVehicle)
+    }
+
+    @Test
+    fun `vehicle search failure is shown and manual economy still works`() {
+        vehicleResult = LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
+        viewModel.onIntent(FuelCostIntent.OpenVehicleSearch)
+        viewModel.onIntent(FuelCostIntent.VehicleQueryChanged("쏘렌토"))
+        viewModel.onIntent(FuelCostIntent.VehicleSearchSubmitted)
+        assertEquals(VehicleSearchState.Failed(LookupFailure.NOT_CONFIGURED), state.vehicleSearch)
+        viewModel.onIntent(FuelCostIntent.Back)
+        viewModel.onIntent(FuelCostIntent.KmPerLiterChanged("12.5"))
+        assertEquals("12.5", state.kmPerLiter)
     }
 
     @Test

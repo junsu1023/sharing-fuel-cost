@@ -116,7 +116,7 @@ internal fun LookupFailure.messageRes(): Int = when (this) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LocationScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+internal fun LocationScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {

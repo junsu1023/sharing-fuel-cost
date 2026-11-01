@@ -89,6 +89,14 @@ fun FuelCostRoute(viewModel: FuelCostViewModel = hiltViewModel()) {
             },
         )
         FuelCostScreen.Result -> state.result?.let { ResultScreen(state, it, onBack) }
+        FuelCostScreen.VehicleSearch -> VehicleSearchScreen(
+            query = state.vehicleQuery,
+            search = state.vehicleSearch,
+            onQueryChange = { onIntent(FuelCostIntent.VehicleQueryChanged(it)) },
+            onSearch = { onIntent(FuelCostIntent.VehicleSearchSubmitted) },
+            onSelect = { onIntent(FuelCostIntent.VehicleSelected(it)) },
+            onBack = onBack,
+        )
         is FuelCostScreen.AddressSearch -> AddressSearchScreen(
             query = state.searchQuery,
             search = state.addressSearch,
