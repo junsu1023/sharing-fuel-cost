@@ -76,7 +76,6 @@ data class FuelCostUiState(
     val originPoint: GeoPoint? = null,
     val destination: String = "",
     val destinationPoint: GeoPoint? = null,
-    val driverName: String = "",
     val riders: List<RiderInput> = emptyList(),
     val kmPerLiter: String = "",
     val wonPerLiter: String = "",
@@ -113,7 +112,6 @@ data class FuelCostUiState(
     val canCalculate: Boolean
         get() = origin.isNotBlank() &&
             destination.isNotBlank() &&
-            driverName.isNotBlank() &&
             kmPerLiter.toPositiveDecimalOrNull() != null &&
             wonPerLiter.toPositiveDecimalOrNull() != null &&
             totalDistanceKm.toPositiveDecimalOrNull() != null &&
@@ -132,7 +130,6 @@ private fun isInvalidPositive(value: String): Boolean =
     value.isNotEmpty() && value.toPositiveDecimalOrNull() == null
 
 sealed interface FuelCostIntent {
-    data class DriverNameChanged(val value: String) : FuelCostIntent
     data object AddRider : FuelCostIntent
     data class RemoveRider(val id: Long) : FuelCostIntent
     data class MoveRider(val id: Long, val offset: Int) : FuelCostIntent

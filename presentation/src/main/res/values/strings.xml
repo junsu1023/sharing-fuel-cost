@@ -5,7 +5,7 @@
     <string name="map_picker_title">탑승 위치 선택</string>
 
     <string name="section_route">어디로 떠나나요?</string>
-    <string name="section_participants">함께 타는 참여자는 누구인가요?</string>
+    <string name="section_participants">누구를 태우고 가나요?</string>
     <string name="section_fuel">연비와 유가를 확인해 주세요</string>
     <string name="fuel_gasoline">휘발유</string>
     <string name="fuel_diesel">경유</string>
@@ -13,6 +13,7 @@
     <string name="fuel_average_applied">%1$s 전국 평균 %2$s원 (%3$s 기준)</string>
     <string name="fuel_price_source">출처: 한국석유공사 오피넷</string>
     <string name="fuel_price_loading">평균 유가를 확인하고 있어요</string>
+    <string name="fuel_price_not_configured">평균 유가 인증키가 설정되지 않았어요. 직접 입력해 주세요</string>
     <string name="fuel_price_failed">평균 유가를 가져오지 못했어요. 직접 입력해 주세요</string>
     <string name="label_map_search">주소나 장소 검색</string>
     <string name="section_method">정산 방식을 골라 주세요</string>
@@ -20,7 +21,6 @@
 
     <string name="label_origin">출발지</string>
     <string name="label_destination">목적지</string>
-    <string name="label_driver">운전자 이름</string>
     <string name="label_rider">탑승자 이름</string>
     <string name="label_pickup">탑승 위치</string>
     <string name="label_fuel_economy">연비</string>

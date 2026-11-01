@@ -20,7 +20,7 @@ class SettlementCalculator {
             .divide(METERS_PER_KM.multiply(input.kmPerLiter), 0, RoundingMode.HALF_UP)
             .toLong()
 
-        val distances = listOf(input.driverName to input.totalDistanceMeters) +
+        val distances = listOf<Pair<String?, Long>>(null to input.totalDistanceMeters) +
             input.riders.map { it.name to it.distanceMeters }
         val distanceSum = distances.sumOf { it.second }
 
