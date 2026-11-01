@@ -156,6 +156,7 @@ internal fun BottomActions(
     filledLabel: String,
     onFilled: () -> Unit,
     filledEnabled: Boolean = true,
+    tonalEnabled: Boolean = true,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(
@@ -167,6 +168,7 @@ internal fun BottomActions(
         ) {
             FilledTonalButton(
                 onClick = onTonal,
+                enabled = tonalEnabled,
                 shape = MaterialTheme.shapes.large,
                 modifier = Modifier.weight(1f).heightIn(min = 56.dp),
             ) { Text(tonalLabel) }

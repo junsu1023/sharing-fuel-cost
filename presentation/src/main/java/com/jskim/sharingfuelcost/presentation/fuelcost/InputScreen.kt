@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -31,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.settlement.SettlementMethod
 import com.jskim.sharingfuelcost.presentation.R
 import com.jskim.sharingfuelcost.presentation.theme.SharingFuelCostTheme
@@ -46,6 +48,7 @@ internal fun InputScreen(state: FuelCostUiState, onIntent: (FuelCostIntent) -> U
                 BottomActions(
                     tonalLabel = stringResource(R.string.action_lookup_distance),
                     onTonal = { onIntent(FuelCostIntent.DistanceLookupClicked) },
+                    tonalEnabled = state.distanceLookup != DistanceLookupState.Loading,
                     filledLabel = stringResource(R.string.action_calculate),
                     onFilled = { onIntent(FuelCostIntent.Calculate) },
                     filledEnabled = state.canCalculate,
@@ -139,6 +142,7 @@ private fun ParticipantsSection(state: FuelCostUiState, onIntent: (FuelCostInten
         }
         FilledTonalButton(
             onClick = { onIntent(FuelCostIntent.AddRider) },
+            enabled = state.canAddRider,
             shape = MaterialTheme.shapes.medium,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         ) {
@@ -217,17 +221,24 @@ private fun methodColors() = SegmentedButtonDefaults.colors(
 @Composable
 private fun DistanceSection(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit) {
     FuelSection(stringResource(R.string.section_distance)) {
-        Text(
-            text = stringResource(
-                if (state.distanceLookupAttempted) R.string.distance_lookup_unavailable else R.string.distance_manual_hint,
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (state.distanceLookupAttempted) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
+        val lookup = state.distanceLookup
+        if (lookup == DistanceLookupState.Loading) {
+            CircularProgressIndicator()
+        } else {
+            val isError = lookup is DistanceLookupState.Failed || lookup == DistanceLookupState.MissingLocation
+            Text(
+                text = stringResource(
+                    when (lookup) {
+                        is DistanceLookupState.Failed -> lookup.reason.messageRes()
+                        DistanceLookupState.MissingLocation -> R.string.distance_missing_location
+                        DistanceLookupState.Success -> R.string.distance_auto_filled
+                        else -> R.string.distance_manual_hint
+                    },
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         FuelTextField(
             value = state.totalDistanceKm,
             onValueChange = { onIntent(FuelCostIntent.TotalDistanceChanged(it)) },
@@ -264,7 +275,7 @@ private val previewState = FuelCostUiState(
     wonPerLiter = "1650",
     method = SettlementMethod.DISTANCE_PROPORTIONAL,
     totalDistanceKm = "250",
-    distanceLookupAttempted = true,
+    distanceLookup = DistanceLookupState.Failed(LookupFailure.NETWORK),
 )
 
 @Preview(name = "라이트, 오류", heightDp = 1400)
