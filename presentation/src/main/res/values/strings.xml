@@ -3,6 +3,8 @@
     <string name="result_title">정산 결과</string>
     <string name="address_search_title">주소 검색</string>
     <string name="map_picker_title">탑승 위치 선택</string>
+    <string name="map_picker_origin_title">출발지 선택</string>
+    <string name="map_picker_destination_title">목적지 선택</string>
 
     <string name="section_route">어디로 떠나나요?</string>
     <string name="section_participants">누구를 태우고 가나요?</string>

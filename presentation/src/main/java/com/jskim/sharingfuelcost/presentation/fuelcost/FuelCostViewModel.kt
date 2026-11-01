@@ -116,7 +116,7 @@ class FuelCostViewModel @Inject constructor(
             addressSearch = AddressSearchState.Idle,
         )
         is FuelCostIntent.OpenMapPicker -> state.copy(
-            screen = FuelCostScreen.MapPicker(intent.riderId),
+            screen = FuelCostScreen.MapPicker(intent.field),
             mapPick = MapPickState.Idle,
             mapCameraTarget = null,
             searchQuery = "",
@@ -232,10 +232,7 @@ class FuelCostViewModel @Inject constructor(
         val state = _uiState.value
         val screen = state.screen as? FuelCostScreen.MapPicker ?: return
         val place = (state.mapPick as? MapPickState.Resolved)?.place ?: return
-        updateRoute {
-            it.withLocation(LocationField.RiderPickup(screen.riderId), place.name, place.point)
-                .copy(screen = FuelCostScreen.Input)
-        }
+        confirmLocation(screen.field, place.name, place.point)
     }
 
     private fun useCurrentLocation() {
@@ -268,6 +265,11 @@ class FuelCostViewModel @Inject constructor(
     private fun applySearchedLocation(label: String, point: GeoPoint?) {
         searchJob?.cancel()
         val field = (_uiState.value.screen as? FuelCostScreen.AddressSearch)?.field ?: return
+        confirmLocation(field, label, point)
+    }
+
+    /** 사용자가 고른 위치를 입력에 넣고 입력 화면으로 돌아간다. */
+    private fun confirmLocation(field: LocationField, label: String, point: GeoPoint?) {
         if (field == LocationField.Origin) locationJob?.cancel()
         updateRoute { state ->
             val updated = state.withLocation(field, label, point).copy(screen = FuelCostScreen.Input)

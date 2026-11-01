@@ -21,7 +21,7 @@ sealed interface FuelCostScreen {
     data object Input : FuelCostScreen
     data object Result : FuelCostScreen
     data class AddressSearch(val field: LocationField) : FuelCostScreen
-    data class MapPicker(val riderId: Long) : FuelCostScreen
+    data class MapPicker(val field: LocationField) : FuelCostScreen
 }
 
 data class RiderInput(
@@ -141,7 +141,7 @@ sealed interface FuelCostIntent {
     data class TotalDistanceChanged(val value: String) : FuelCostIntent
     data object DistanceLookupClicked : FuelCostIntent
     data class OpenAddressSearch(val field: LocationField) : FuelCostIntent
-    data class OpenMapPicker(val riderId: Long) : FuelCostIntent
+    data class OpenMapPicker(val field: LocationField) : FuelCostIntent
     data class SearchQueryChanged(val value: String) : FuelCostIntent
     data object SearchSubmitted : FuelCostIntent
     data class PlaceSelected(val place: Place) : FuelCostIntent
