@@ -54,9 +54,6 @@ internal fun InputScreen(
         bottomBar = {
             Column(modifier = Modifier.imePadding()) {
                 BottomActions(
-                    tonalLabel = stringResource(R.string.action_lookup_distance),
-                    onTonal = { onIntent(FuelCostIntent.DistanceLookupClicked) },
-                    tonalEnabled = state.distanceLookup != DistanceLookupState.Loading,
                     filledLabel = stringResource(R.string.action_calculate),
                     onFilled = { onIntent(FuelCostIntent.Calculate) },
                     filledEnabled = state.canCalculate,
@@ -345,6 +342,12 @@ private fun DistanceSection(state: FuelCostUiState, onIntent: (FuelCostIntent) -
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (lookup is DistanceLookupState.Failed) {
+                TextButton(
+                    onClick = { onIntent(FuelCostIntent.DistanceLookupClicked) },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) { Text(stringResource(R.string.action_retry_lookup)) }
+            }
         }
         FuelTextField(
             value = state.totalDistanceKm,

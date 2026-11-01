@@ -29,7 +29,7 @@
     <string name="fuel_price_failed">평균 유가를 가져오지 못했어요. 직접 입력해 주세요</string>
     <string name="label_map_search">주소나 장소 검색</string>
     <string name="section_method">정산 방식을 골라 주세요</string>
-    <string name="section_distance">거리를 입력해 주세요</string>
+    <string name="section_distance">거리를 확인해 주세요</string>
 
     <string name="label_origin">출발지</string>
     <string name="label_destination">목적지</string>
@@ -53,7 +53,7 @@
     <string name="action_search_address">주소 검색</string>
     <string name="action_pick_on_map">지도에서 선택</string>
     <string name="action_add_rider">탑승자 추가</string>
-    <string name="action_lookup_distance">거리 조회</string>
+    <string name="action_retry_lookup">다시 조회</string>
     <string name="action_calculate">계산하기</string>
     <string name="action_copy">복사</string>
     <string name="action_share">공유</string>
@@ -77,9 +77,9 @@
     <string name="map_unavailable">지도를 불러오지 못했어요. 주소로 입력해 주세요</string>
     <string name="map_search_empty">검색 결과가 없어요</string>
     <string name="map_no_address">이 위치의 주소를 찾지 못했어요. 지도를 옮겨 보세요</string>
-    <string name="distance_manual_hint">거리 조회를 누르거나 전체 주행 거리와 탑승자별 이동 거리를 입력해 주세요</string>
-    <string name="distance_auto_filled">조회한 거리를 채웠어요. 직접 고칠 수도 있어요</string>
-    <string name="distance_missing_location">주소 검색 결과로 고르지 않은 위치가 있어요. 다시 고르거나 거리를 직접 입력해 주세요</string>
+    <string name="distance_manual_hint">위치를 모두 고르면 거리가 자동으로 채워져요. 직접 입력해도 돼요</string>
+    <string name="distance_auto_filled">경로에 맞춰 거리를 채웠어요. 직접 고칠 수도 있어요</string>
+    <string name="distance_missing_location">지도에서 고르지 않은 위치가 있어요. 다시 고르거나 거리를 직접 입력해 주세요</string>
 
     <string name="failure_not_configured">거리 조회 키가 설정되지 않았어요. 직접 입력해 주세요</string>
     <string name="failure_no_route">경로를 찾지 못했어요. 위치를 바꾸거나 직접 입력해 주세요</string>

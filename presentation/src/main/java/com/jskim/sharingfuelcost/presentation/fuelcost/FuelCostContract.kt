@@ -98,6 +98,8 @@ data class FuelCostUiState(
     val method: SettlementMethod = SettlementMethod.EQUAL,
     val totalDistanceKm: String = "",
     val distanceLookup: DistanceLookupState = DistanceLookupState.Idle,
+    /** 거리 칸의 값이 조회 결과에서 왔는지. 직접 고쳐도 유지해, 경로가 바뀌면 이전 거리를 지운다. */
+    val distanceFromLookup: Boolean = false,
     val searchQuery: String = "",
     val addressSearch: AddressSearchState = AddressSearchState.Idle,
     val mapPick: MapPickState = MapPickState.Idle,
@@ -122,7 +124,8 @@ data class FuelCostUiState(
     }
 
     val canCalculate: Boolean
-        get() = origin.isNotBlank() &&
+        get() = distanceLookup != DistanceLookupState.Loading &&
+            origin.isNotBlank() &&
             destination.isNotBlank() &&
             kmPerLiter.toPositiveDecimalOrNull() != null &&
             wonPerLiter.toPositiveDecimalOrNull() != null &&

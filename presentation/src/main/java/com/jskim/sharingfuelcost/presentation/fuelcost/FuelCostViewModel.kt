@@ -141,13 +141,20 @@ class FuelCostViewModel @Inject constructor(
         else -> state
     }
 
+    /** 위치가 모두 정해졌으면 조회한다. 아직 비어 있으면 대기하고, 좌표 없는 위치가 있으면 직접 입력을 안내한다. */
     private fun lookupDistances() {
         val state = _uiState.value
         val origin = state.originPoint
         val destination = state.destinationPoint
         val pickups = state.riders.mapNotNull { it.pickupPoint }
         if (origin == null || destination == null || pickups.size != state.riders.size) {
-            _uiState.update { it.copy(distanceLookup = DistanceLookupState.MissingLocation) }
+            val incomplete = state.origin.isBlank() || state.destination.isBlank() ||
+                state.riders.any { it.pickup.isBlank() }
+            _uiState.update {
+                it.copy(
+                    distanceLookup = if (incomplete) DistanceLookupState.Idle else DistanceLookupState.MissingLocation,
+                )
+            }
             return
         }
         _uiState.update { it.copy(distanceLookup = DistanceLookupState.Loading) }
@@ -162,6 +169,7 @@ class FuelCostViewModel @Inject constructor(
                             rider.copy(distanceKm = metersToKmInput(result.value.riderMeters[index]))
                         },
                         distanceLookup = DistanceLookupState.Success,
+                        distanceFromLookup = true,
                     )
                     is LookupResult.Failure -> current.copy(distanceLookup = DistanceLookupState.Failed(result.reason))
                 }
@@ -348,17 +356,22 @@ class FuelCostViewModel @Inject constructor(
         is LocationField.RiderPickup -> updateRider(field.riderId) { it.copy(pickup = label, pickupPoint = point) }
     }
 
-    /** 경로가 바뀌면 진행 중인 조회를 취소하고, 이전 경로로 조회한 거리를 지운다. */
+    /** 경로가 바뀌면 진행 중인 조회를 취소하고, 이전 경로로 조회한 거리를 지운 뒤 다시 조회한다. */
     private fun updateRoute(transform: (FuelCostUiState) -> FuelCostUiState) {
         lookupJob?.cancel()
         _uiState.update { state ->
-            val cleared = if (state.distanceLookup == DistanceLookupState.Success) {
-                state.copy(totalDistanceKm = "", riders = state.riders.map { it.copy(distanceKm = "") })
+            val cleared = if (state.distanceFromLookup) {
+                state.copy(
+                    totalDistanceKm = "",
+                    riders = state.riders.map { it.copy(distanceKm = "") },
+                    distanceFromLookup = false,
+                )
             } else {
                 state
             }
             transform(cleared).copy(distanceLookup = DistanceLookupState.Idle)
         }
+        lookupDistances()
     }
 
     private fun GeoPoint.isNear(other: GeoPoint): Boolean =

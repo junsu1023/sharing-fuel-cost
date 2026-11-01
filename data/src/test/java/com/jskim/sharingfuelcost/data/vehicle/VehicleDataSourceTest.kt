@@ -40,6 +40,23 @@ class VehicleDataSourceTest {
     }
 
     @Test
+    fun `parses captured real response shape`() {
+        val result = vehicles(
+            """{"response":{"header":{"resultCode":"00","resultMsg":"NORMAL_CODE"},"body":{"pageNo":"1","totalCount":"46",
+            "numOfRows":"3","items":{"item":[{"RANGE_PER_CHARGE":"NULL","URBAN_EFF":"9.4","YEAR":"2020",
+            "MODEL_NM":"아반떼 1.6 LPI 15인치 타이어","CAR_TYPE":"내연기관","FUEL_NM":"LPG","COMP_NM":"현대",
+            "HIGHWAY_EFF":"12.5","DISPLAY_EFF":"10.6"}]}}}}""",
+        )
+        assertEquals(FuelType.LPG, result.single().fuelType)
+        assertEquals(BigDecimal("10.6"), result.single().kmPerLiter)
+    }
+
+    @Test
+    fun `no results body without item is empty`() {
+        assertEquals(0, vehicles("""{"response":{"header":{"resultCode":"00"},"body":{"totalCount":"0","items":""}}}""").size)
+    }
+
+    @Test
     fun `reads number from efficiency with unit`() {
         assertEquals(BigDecimal("14.3"), vehicles("""{"body":{"items":[$diesel]}}""").single().kmPerLiter)
     }
@@ -55,6 +72,8 @@ class VehicleDataSourceTest {
         assertEquals(FuelType.DIESEL, fuelTypeOf("경유"))
         assertEquals(FuelType.LPG, fuelTypeOf("LPG"))
         assertEquals(null, fuelTypeOf("전기"))
+        assertEquals(null, fuelTypeOf("수소"))
+        assertEquals(FuelType.GASOLINE, fuelTypeOf("전기+휘발유"))
         assertEquals(null, fuelTypeOf(""))
     }
 
