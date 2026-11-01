@@ -27,7 +27,7 @@ import java.math.RoundingMode
 import javax.inject.Inject
 import kotlin.math.abs
 
-private const val SEARCH_DEBOUNCE_MILLIS = 300L
+private const val SEARCH_DEBOUNCE_MILLIS = 100L
 
 /** 카메라 좌표에 생기는 작은 오차를 무시하는 범위(약 20m) */
 private const val SAME_POINT_DEGREES = 0.0002
@@ -99,7 +99,6 @@ class FuelCostViewModel @Inject constructor(
     }
 
     private fun reduce(state: FuelCostUiState, intent: FuelCostIntent): FuelCostUiState = when (intent) {
-        is FuelCostIntent.DriverNameChanged -> state.copy(driverName = intent.value)
         is FuelCostIntent.RiderNameChanged -> state.updateRider(intent.id) { it.copy(name = intent.value) }
         is FuelCostIntent.RiderDistanceChanged ->
             state.updateRider(intent.id) { it.copy(distanceKm = intent.value.decimalOnly()) }.manualDistance()
@@ -316,7 +315,6 @@ class FuelCostViewModel @Inject constructor(
             kmPerLiter = kmPerLiter.toBigDecimal(),
             wonPerLiter = wonPerLiter.toBigDecimal(),
             method = method,
-            driverName = driverName.trim(),
             riders = riders.map { RiderTrip(it.name.trim(), kmToMeters(it.distanceKm.toBigDecimal())) },
         )
         return when (val outcome = calculator(input)) {

@@ -20,7 +20,6 @@ class SettlementCalculatorTest {
         kmPerLiter = BigDecimal(kmPerLiter),
         wonPerLiter = BigDecimal(wonPerLiter),
         method = method,
-        driverName = "운전자",
         riders = riders.mapIndexed { index, meters -> RiderTrip("탑승자$index", meters) },
     )
 

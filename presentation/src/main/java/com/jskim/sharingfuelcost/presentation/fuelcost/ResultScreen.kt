@@ -103,9 +103,7 @@ internal fun ResultScreen(state: FuelCostUiState, result: SettlementResult, onBa
                 }
             }
             FuelSection(stringResource(result.method.headingRes())) {
-                result.shares.forEachIndexed { index, share ->
-                    ShareRow(share, isDriver = index == 0)
-                }
+                result.shares.forEach { share -> ShareRow(share) }
             }
             FuelSection(title = null) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -137,21 +135,26 @@ internal fun ResultScreen(state: FuelCostUiState, result: SettlementResult, onBa
 }
 
 @Composable
-private fun ShareRow(share: ParticipantShare, isDriver: Boolean) {
+private fun ShareRow(share: ParticipantShare) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        NameAvatar(share.name)
+        val name = share.name ?: stringResource(R.string.role_driver)
+        NameAvatar(name)
         Column(modifier = Modifier.weight(1f)) {
-            Text(share.name, style = MaterialTheme.typography.titleMedium)
+            Text(name, style = MaterialTheme.typography.titleMedium)
             Text(
-                text = stringResource(
-                    R.string.result_participant_meta,
-                    stringResource(if (isDriver) R.string.role_driver else R.string.role_rider),
-                    formatKm(share.distanceMeters),
-                ),
+                text = if (share.name == null) {
+                    stringResource(R.string.distance_km, formatKm(share.distanceMeters))
+                } else {
+                    stringResource(
+                        R.string.result_participant_meta,
+                        stringResource(R.string.role_rider),
+                        formatKm(share.distanceMeters),
+                    )
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -193,7 +196,8 @@ private fun buildShareText(
     add(context.getString(R.string.share_total_cost, formatWon(result.totalCostWon)))
     add(context.getString(R.string.share_method, methodName))
     result.shares.forEach {
-        add(context.getString(R.string.share_participant, it.name, formatKm(it.distanceMeters), formatWon(it.amountWon)))
+        val name = it.name ?: context.getString(R.string.role_driver)
+        add(context.getString(R.string.share_participant, name, formatKm(it.distanceMeters), formatWon(it.amountWon)))
     }
 }.joinToString("\n")
 
@@ -228,7 +232,7 @@ private fun ResultScreenPreview() {
                 totalCostWon = 33_000,
                 method = SettlementMethod.DISTANCE_PROPORTIONAL,
                 shares = listOf(
-                    ParticipantShare("준수", 250_000, 13_750),
+                    ParticipantShare(null, 250_000, 13_750),
                     ParticipantShare("민지", 240_000, 13_200),
                     ParticipantShare("현우", 110_000, 6_050),
                 ),

@@ -243,9 +243,9 @@ class FuelCostViewModelTest {
     fun `typing searches after debounce and only for the latest text`() {
         viewModel.onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Destination))
         viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강"))
-        dispatcher.scheduler.advanceTimeBy(100)
+        dispatcher.scheduler.advanceTimeBy(50)
         viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남"))
-        dispatcher.scheduler.advanceTimeBy(299)
+        dispatcher.scheduler.advanceTimeBy(99)
         dispatcher.scheduler.runCurrent()
         assertEquals(0, searchCalls)
 
@@ -328,6 +328,15 @@ class FuelCostViewModelTest {
     }
 
     @Test
+    fun `driver needs no input so result lists driver first without name`() {
+        fillValidInput()
+        assertTrue(state.canCalculate)
+        addRider("민지", "사당역", "100")
+        viewModel.onIntent(FuelCostIntent.Calculate)
+        assertEquals(listOf(null, "민지"), state.result?.shares?.map { it.name })
+    }
+
+    @Test
     fun `riders are limited to five`() {
         repeat(6) { viewModel.onIntent(FuelCostIntent.AddRider) }
         assertEquals(MAX_RIDERS, state.riders.size)
@@ -352,7 +361,6 @@ class FuelCostViewModelTest {
     private fun fillValidInput() {
         enterAddress(LocationField.Origin, "강남역")
         enterAddress(LocationField.Destination, "속초해수욕장")
-        viewModel.onIntent(FuelCostIntent.DriverNameChanged("준수"))
         viewModel.onIntent(FuelCostIntent.KmPerLiterChanged("12.5"))
         viewModel.onIntent(FuelCostIntent.WonPerLiterChanged("1650"))
         viewModel.onIntent(FuelCostIntent.TotalDistanceChanged("250"))
@@ -431,7 +439,7 @@ class FuelCostViewModelTest {
         viewModel.onIntent(FuelCostIntent.Calculate)
         viewModel.onIntent(FuelCostIntent.Back)
         assertEquals(FuelCostScreen.Input, state.screen)
-        assertEquals("준수", state.driverName)
+        assertEquals("12.5", state.kmPerLiter)
     }
 
     @Test

@@ -14,12 +14,12 @@ data class SettlementInput(
     val kmPerLiter: BigDecimal,
     val wonPerLiter: BigDecimal,
     val method: SettlementMethod,
-    val driverName: String,
     val riders: List<RiderTrip>,
 )
 
 data class ParticipantShare(
-    val name: String,
+    /** 운전자는 앱 사용자 본인이라 이름이 없다. */
+    val name: String?,
     val distanceMeters: Long,
     val amountWon: Long,
 )

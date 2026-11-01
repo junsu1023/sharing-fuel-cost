@@ -164,18 +164,6 @@ private fun CurrentLocationRow(location: CurrentLocationState, onUse: () -> Unit
 @Composable
 private fun ParticipantsSection(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit) {
     FuelSection(stringResource(R.string.section_participants)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            NameAvatar(state.driverName)
-            FuelTextField(
-                value = state.driverName,
-                onValueChange = { onIntent(FuelCostIntent.DriverNameChanged(it)) },
-                label = stringResource(R.string.label_driver),
-                modifier = Modifier.weight(1f),
-            )
-        }
         state.riders.forEachIndexed { index, rider ->
             RiderItem(
                 rider = rider,
@@ -274,6 +262,8 @@ private fun FuelPriceInfo(state: FuelCostUiState, onIntent: (FuelCostIntent) -> 
                         formatTradeDate(average.tradeDate),
                     )
                     state.fuelPrice == FuelPriceState.Loading -> stringResource(R.string.fuel_price_loading)
+                    state.fuelPrice == FuelPriceState.Failed(LookupFailure.NOT_CONFIGURED) ->
+                        stringResource(R.string.fuel_price_not_configured)
                     else -> stringResource(R.string.fuel_price_failed)
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -373,7 +363,6 @@ private fun DistanceSection(state: FuelCostUiState, onIntent: (FuelCostIntent) -
 private val previewState = FuelCostUiState(
     origin = "강남역 2번 출구",
     destination = "속초해수욕장",
-    driverName = "준수",
     riders = listOf(
         RiderInput(0, "민지", "사당역", "240"),
         RiderInput(1, "현우", "수원역", "300"),
