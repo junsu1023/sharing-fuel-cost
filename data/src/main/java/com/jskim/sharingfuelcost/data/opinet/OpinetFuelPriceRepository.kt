@@ -18,7 +18,6 @@ internal data class OpinetResponse(@SerialName("RESULT") val result: OpinetResul
 @Serializable
 internal data class OpinetResult(@SerialName("OIL") val oil: List<OpinetOil> = emptyList())
 
-/** 공식 문서에 값의 타입이 없어 문자열과 숫자를 모두 받는다. */
 @Serializable
 internal data class OpinetOil(
     @SerialName("TRADE_DT") val tradeDate: JsonPrimitive,
@@ -29,7 +28,8 @@ internal data class OpinetOil(
 internal interface OpinetService {
     @GET("api/avgAllPrice.do")
     suspend fun averagePrices(
-        @Query("certkey") certKey: String,
+        // 공식 문서에는 certkey로 적혀 있지만 실제로는 code만 동작한다. (2026-11-01 호출로 확인)
+        @Query("code") certKey: String,
         @Query("out") out: String = "json",
     ): OpinetResponse
 }
