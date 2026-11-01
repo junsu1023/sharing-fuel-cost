@@ -87,6 +87,23 @@ class KakaoRepositoriesTest {
     }
 
     @Test
+    fun `place search reports missing key and http failures`() {
+        val service = object : KakaoLocalService {
+            override suspend fun searchAddress(query: String): AddressSearchResponse = throw httpError(429)
+            override suspend fun searchKeyword(query: String) = KeywordSearchResponse()
+            override suspend fun coordToAddress(x: String, y: String): CoordToAddressResponse = throw httpError(401)
+        }
+        val unconfigured = KakaoPlaceSearchRepository(service, false)
+        val configured = KakaoPlaceSearchRepository(service, true)
+        runBlocking {
+            assertEquals(LookupResult.Failure(LookupFailure.NOT_CONFIGURED), unconfigured.search("q"))
+            assertEquals(LookupResult.Failure(LookupFailure.NOT_CONFIGURED), unconfigured.reverseGeocode(a))
+            assertEquals(LookupResult.Failure(LookupFailure.QUOTA_EXCEEDED), configured.search("q"))
+            assertEquals(LookupResult.Failure(LookupFailure.UNAUTHORIZED), configured.reverseGeocode(a))
+        }
+    }
+
+    @Test
     fun `reverse geocode prefers building then road then lot address`() {
         val response = json.decodeFromString<CoordToAddressResponse>(
             """{"meta":{"total_count":1},"documents":[{"road_address":{"address_name":"도로명","building_name":"건물"},
