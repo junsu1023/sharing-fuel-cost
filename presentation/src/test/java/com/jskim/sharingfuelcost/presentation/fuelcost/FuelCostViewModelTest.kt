@@ -1,15 +1,154 @@
 package com.jskim.sharingfuelcost.presentation.fuelcost
 
+import com.jskim.sharingfuelcost.domain.route.GeoPoint
+import com.jskim.sharingfuelcost.domain.route.LookupFailure
+import com.jskim.sharingfuelcost.domain.route.LookupResult
+import com.jskim.sharingfuelcost.domain.route.Place
+import com.jskim.sharingfuelcost.domain.route.PlaceSearchRepository
+import com.jskim.sharingfuelcost.domain.route.RouteDistanceRepository
+import com.jskim.sharingfuelcost.domain.route.RouteDistances
+import com.jskim.sharingfuelcost.domain.settlement.SettlementCalculator
 import com.jskim.sharingfuelcost.domain.settlement.SettlementMethod
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class FuelCostViewModelTest {
 
-    private val viewModel = FuelCostViewModel()
+    private val point = GeoPoint(127.0, 37.0)
+    private var routeResult: LookupResult<RouteDistances> =
+        LookupResult.Success(RouteDistances(256_734, listOf(250_316)))
+    private var routeGate: CompletableDeferred<Unit>? = null
+    private var searchResult: LookupResult<List<Place>> = LookupResult.Success(listOf(Place("강남역", "주소", point)))
+
+    private val viewModel by lazy {
+        FuelCostViewModel(
+            SettlementCalculator(),
+            object : RouteDistanceRepository {
+                override suspend fun fetchDistances(origin: GeoPoint, destination: GeoPoint, pickups: List<GeoPoint>) =
+                    routeResult.also { routeGate?.await() }
+            },
+            object : PlaceSearchRepository {
+                override suspend fun search(query: String) = searchResult
+            },
+        )
+    }
     private val state get() = viewModel.uiState.value
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    private fun selectPlace(field: LocationField) {
+        viewModel.onIntent(FuelCostIntent.OpenAddressSearch(field))
+        viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남역"))
+        viewModel.onIntent(FuelCostIntent.SearchSubmitted)
+        val places = (state.addressSearch as AddressSearchState.Results).places
+        viewModel.onIntent(FuelCostIntent.PlaceSelected(places.first()))
+    }
+
+    private fun routeWithOneRider(): Long {
+        selectPlace(LocationField.Origin)
+        selectPlace(LocationField.Destination)
+        viewModel.onIntent(FuelCostIntent.AddRider)
+        val id = state.riders.single().id
+        selectPlace(LocationField.RiderPickup(id))
+        return id
+    }
+
+    @Test
+    fun `lookup success fills exact distances and manual edit is allowed`() {
+        routeWithOneRider()
+        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
+        assertEquals(DistanceLookupState.Success, state.distanceLookup)
+        assertEquals("256.734", state.totalDistanceKm)
+        assertEquals("250.316", state.riders.single().distanceKm)
+
+        viewModel.onIntent(FuelCostIntent.TotalDistanceChanged("300"))
+        assertEquals("300", state.totalDistanceKm)
+        assertEquals(DistanceLookupState.Idle, state.distanceLookup)
+    }
+
+    @Test
+    fun `lookup failure keeps manual input possible`() {
+        routeWithOneRider()
+        routeResult = LookupResult.Failure(LookupFailure.NETWORK)
+        viewModel.onIntent(FuelCostIntent.TotalDistanceChanged("100"))
+        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
+        assertEquals(DistanceLookupState.Failed(LookupFailure.NETWORK), state.distanceLookup)
+        assertEquals("100", state.totalDistanceKm)
+    }
+
+    @Test
+    fun `typed address has no coordinates so lookup reports missing location`() {
+        enterAddress(LocationField.Origin, "직접 입력")
+        selectPlace(LocationField.Destination)
+        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
+        assertEquals(DistanceLookupState.MissingLocation, state.distanceLookup)
+    }
+
+    @Test
+    fun `changing route clears looked up distances but not manual ones`() {
+        val id = routeWithOneRider()
+        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
+        selectPlace(LocationField.RiderPickup(id))
+        assertEquals("", state.totalDistanceKm)
+        assertEquals(DistanceLookupState.Idle, state.distanceLookup)
+
+        viewModel.onIntent(FuelCostIntent.TotalDistanceChanged("100"))
+        selectPlace(LocationField.Destination)
+        assertEquals("100", state.totalDistanceKm)
+    }
+
+    @Test
+    fun `route change cancels lookup in flight`() {
+        routeWithOneRider()
+        routeGate = CompletableDeferred()
+        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
+        assertEquals(DistanceLookupState.Loading, state.distanceLookup)
+
+        viewModel.onIntent(FuelCostIntent.AddRider)
+        routeGate?.complete(Unit)
+        assertEquals(DistanceLookupState.Idle, state.distanceLookup)
+        assertEquals("", state.totalDistanceKm)
+    }
+
+    @Test
+    fun `search failure is shown and typed address can be used`() {
+        searchResult = LookupResult.Failure(LookupFailure.QUOTA_EXCEEDED)
+        viewModel.onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Origin))
+        viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남역"))
+        viewModel.onIntent(FuelCostIntent.SearchSubmitted)
+        assertEquals(AddressSearchState.Failed(LookupFailure.QUOTA_EXCEEDED), state.addressSearch)
+
+        viewModel.onIntent(FuelCostIntent.ConfirmAddress)
+        assertEquals("강남역", state.origin)
+        assertNull(state.originPoint)
+    }
+
+    @Test
+    fun `riders are limited to five`() {
+        repeat(6) { viewModel.onIntent(FuelCostIntent.AddRider) }
+        assertEquals(MAX_RIDERS, state.riders.size)
+        assertFalse(state.canAddRider)
+    }
 
     private fun enterAddress(field: LocationField, address: String) {
         viewModel.onIntent(FuelCostIntent.OpenAddressSearch(field))
@@ -75,10 +214,8 @@ class FuelCostViewModelTest {
     }
 
     @Test
-    fun `distance lookup reports unavailable and manual input still calculates`() {
+    fun `manual input calculates without lookup`() {
         fillValidInput()
-        viewModel.onIntent(FuelCostIntent.DistanceLookupClicked)
-        assertTrue(state.distanceLookupAttempted)
         assertTrue(state.canCalculate)
     }
 

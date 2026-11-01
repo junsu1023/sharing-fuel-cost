@@ -1,8 +1,13 @@
 package com.jskim.sharingfuelcost.presentation.fuelcost
 
+import com.jskim.sharingfuelcost.domain.route.GeoPoint
+import com.jskim.sharingfuelcost.domain.route.LookupFailure
+import com.jskim.sharingfuelcost.domain.route.Place
 import com.jskim.sharingfuelcost.domain.settlement.SettlementMethod
 import com.jskim.sharingfuelcost.domain.settlement.SettlementResult
 import java.math.BigDecimal
+
+internal const val MAX_RIDERS = 5
 
 sealed interface LocationField {
     data object Origin : LocationField
@@ -22,25 +27,46 @@ data class RiderInput(
     val name: String = "",
     val pickup: String = "",
     val distanceKm: String = "",
+    val pickupPoint: GeoPoint? = null,
 )
+
+sealed interface DistanceLookupState {
+    data object Idle : DistanceLookupState
+    data object Loading : DistanceLookupState
+    data object Success : DistanceLookupState
+    /** 직접 입력한 주소처럼 좌표가 없는 위치가 있어 조회할 수 없다. */
+    data object MissingLocation : DistanceLookupState
+    data class Failed(val reason: LookupFailure) : DistanceLookupState
+}
+
+sealed interface AddressSearchState {
+    data object Idle : AddressSearchState
+    data object Loading : AddressSearchState
+    data class Results(val places: List<Place>) : AddressSearchState
+    data class Failed(val reason: LookupFailure) : AddressSearchState
+}
 
 data class FuelCostUiState(
     val screen: FuelCostScreen = FuelCostScreen.Input,
     val origin: String = "",
+    val originPoint: GeoPoint? = null,
     val destination: String = "",
+    val destinationPoint: GeoPoint? = null,
     val driverName: String = "",
     val riders: List<RiderInput> = emptyList(),
     val kmPerLiter: String = "",
     val wonPerLiter: String = "",
     val method: SettlementMethod = SettlementMethod.EQUAL,
     val totalDistanceKm: String = "",
-    val distanceLookupAttempted: Boolean = false,
+    val distanceLookup: DistanceLookupState = DistanceLookupState.Idle,
     val searchQuery: String = "",
+    val addressSearch: AddressSearchState = AddressSearchState.Idle,
     val result: SettlementResult? = null,
 ) {
     val kmPerLiterInvalid: Boolean get() = isInvalidPositive(kmPerLiter)
     val wonPerLiterInvalid: Boolean get() = isInvalidPositive(wonPerLiter)
     val totalDistanceInvalid: Boolean get() = isInvalidPositive(totalDistanceKm)
+    val canAddRider: Boolean get() = riders.size < MAX_RIDERS
 
     fun riderDistanceInvalid(rider: RiderInput): Boolean {
         if (isInvalidPositive(rider.distanceKm)) return true
@@ -85,6 +111,9 @@ sealed interface FuelCostIntent {
     data class OpenAddressSearch(val field: LocationField) : FuelCostIntent
     data class OpenMapPicker(val riderId: Long) : FuelCostIntent
     data class SearchQueryChanged(val value: String) : FuelCostIntent
+    data object SearchSubmitted : FuelCostIntent
+    data class PlaceSelected(val place: Place) : FuelCostIntent
+    /** 검색 없이 입력한 내용을 쓴다. 좌표가 없어 자동 거리 조회는 할 수 없다. */
     data object ConfirmAddress : FuelCostIntent
     data object Calculate : FuelCostIntent
     data object Back : FuelCostIntent

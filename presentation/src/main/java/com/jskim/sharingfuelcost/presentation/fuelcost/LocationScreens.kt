@@ -1,14 +1,21 @@
 package com.jskim.sharingfuelcost.presentation.fuelcost
 
 import android.content.res.Configuration
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,15 +28,20 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.jskim.sharingfuelcost.domain.route.GeoPoint
+import com.jskim.sharingfuelcost.domain.route.LookupFailure
+import com.jskim.sharingfuelcost.domain.route.Place
 import com.jskim.sharingfuelcost.presentation.R
 import com.jskim.sharingfuelcost.presentation.theme.SharingFuelCostTheme
 
-/** 주소 검색 API는 미연동이다. 연결 전까지 입력한 주소를 그대로 사용한다. */
 @Composable
 internal fun AddressSearchScreen(
     query: String,
+    search: AddressSearchState,
     onQueryChange: (String) -> Unit,
-    onConfirm: () -> Unit,
+    onSearch: () -> Unit,
+    onSelect: (Place) -> Unit,
+    onUseTyped: () -> Unit,
     onBack: () -> Unit,
 ) {
     LocationScaffold(stringResource(R.string.address_search_title), onBack) {
@@ -39,22 +51,66 @@ internal fun AddressSearchScreen(
                 onValueChange = onQueryChange,
                 label = stringResource(R.string.label_address),
             )
-            Text(
-                text = stringResource(R.string.address_search_unavailable),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Button(
-                onClick = onConfirm,
-                enabled = query.isNotBlank(),
+                onClick = onSearch,
+                enabled = query.isNotBlank() && search != AddressSearchState.Loading,
                 shape = MaterialTheme.shapes.large,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            ) { Text(stringResource(R.string.action_use_address)) }
+            ) { Text(stringResource(R.string.action_search)) }
+            when (search) {
+                AddressSearchState.Idle -> Unit
+                AddressSearchState.Loading -> CircularProgressIndicator()
+                is AddressSearchState.Results -> {
+                    if (search.places.isEmpty()) {
+                        Text(stringResource(R.string.address_search_empty), style = MaterialTheme.typography.bodyMedium)
+                        UseTypedButton(query, onUseTyped)
+                    }
+                    search.places.forEach { place -> PlaceRow(place) { onSelect(place) } }
+                }
+                is AddressSearchState.Failed -> {
+                    Text(
+                        text = stringResource(search.reason.messageRes()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    UseTypedButton(query, onUseTyped)
+                }
+            }
         }
     }
 }
 
-/** 지도 SDK는 미연동이다. 연결 전까지 주소 입력으로 대체한다. */
+@Composable
+private fun UseTypedButton(query: String, onClick: () -> Unit) {
+    FilledTonalButton(
+        onClick = onClick,
+        enabled = query.isNotBlank(),
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+    ) { Text(stringResource(R.string.action_use_address)) }
+}
+
+@Composable
+private fun PlaceRow(place: Place, onClick: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column(
+            modifier = Modifier.heightIn(min = 56.dp).padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(place.name, style = MaterialTheme.typography.titleMedium)
+            if (place.address != place.name) {
+                Text(
+                    text = place.address,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+    }
+}
+
+/** 지도 SDK는 미연동이다. 연결 전까지 주소 검색으로 대체한다. */
 @Composable
 internal fun MapPickerScreen(onUseAddress: () -> Unit, onBack: () -> Unit) {
     LocationScaffold(stringResource(R.string.map_picker_title), onBack) {
@@ -70,6 +126,15 @@ internal fun MapPickerScreen(onUseAddress: () -> Unit, onBack: () -> Unit) {
             ) { Text(stringResource(R.string.action_enter_by_address)) }
         }
     }
+}
+
+internal fun LookupFailure.messageRes(): Int = when (this) {
+    LookupFailure.NOT_CONFIGURED -> R.string.failure_not_configured
+    LookupFailure.NO_ROUTE -> R.string.failure_no_route
+    LookupFailure.UNAUTHORIZED -> R.string.failure_unauthorized
+    LookupFailure.QUOTA_EXCEEDED -> R.string.failure_quota
+    LookupFailure.NETWORK -> R.string.failure_network
+    LookupFailure.UNEXPECTED -> R.string.failure_unexpected
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,15 +153,49 @@ private fun LocationScaffold(title: String, onBack: () -> Unit, content: @Compos
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) { content() }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding()
+                .verticalScroll(rememberScrollState()),
+        ) { content() }
     }
 }
 
-@Preview(name = "라이트")
-@Preview(name = "다크", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "라이트, 결과")
+@Preview(name = "다크, 결과", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun AddressSearchPreview() {
-    SharingFuelCostTheme { AddressSearchScreen("속초해수욕장", {}, {}, {}) }
+    SharingFuelCostTheme {
+        AddressSearchScreen(
+            query = "속초해수욕장",
+            search = AddressSearchState.Results(
+                listOf(Place("속초해수욕장", "강원 속초시 해오름로 190", GeoPoint(128.6, 38.19))),
+            ),
+            onQueryChange = {},
+            onSearch = {},
+            onSelect = {},
+            onUseTyped = {},
+            onBack = {},
+        )
+    }
+}
+
+@Preview(name = "라이트, 실패")
+@Composable
+private fun AddressSearchFailedPreview() {
+    SharingFuelCostTheme {
+        AddressSearchScreen(
+            query = "속초해수욕장",
+            search = AddressSearchState.Failed(LookupFailure.NETWORK),
+            onQueryChange = {},
+            onSearch = {},
+            onSelect = {},
+            onUseTyped = {},
+            onBack = {},
+        )
+    }
 }
 
 @Preview(name = "라이트")
