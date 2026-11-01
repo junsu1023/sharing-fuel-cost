@@ -115,7 +115,7 @@ private fun RouteSection(
             value = state.origin,
             placeholder = stringResource(R.string.placeholder_address),
             action = stringResource(R.string.action_search_address),
-            onAction = { onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Origin)) },
+            onAction = { onIntent(FuelCostIntent.OpenMapPicker(LocationField.Origin)) },
             iconRes = R.drawable.ic_my_location,
         )
         CurrentLocationRow(state.currentLocation, onUseCurrentLocation)
@@ -124,7 +124,7 @@ private fun RouteSection(
             value = state.destination,
             placeholder = stringResource(R.string.placeholder_address),
             action = stringResource(R.string.action_search_address),
-            onAction = { onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Destination)) },
+            onAction = { onIntent(FuelCostIntent.OpenMapPicker(LocationField.Destination)) },
             iconRes = R.drawable.ic_flag,
         )
     }
@@ -215,7 +215,7 @@ private fun RiderItem(
             value = rider.pickup,
             placeholder = stringResource(R.string.placeholder_pickup),
             action = stringResource(R.string.action_pick_on_map),
-            onAction = { onIntent(FuelCostIntent.OpenMapPicker(rider.id)) },
+            onAction = { onIntent(FuelCostIntent.OpenMapPicker(LocationField.RiderPickup(rider.id))) },
             modifier = Modifier.padding(start = 52.dp),
         )
     }

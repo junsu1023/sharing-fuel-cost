@@ -170,7 +170,7 @@ class FuelCostViewModelTest {
     fun `map pick resolves address and confirm sets rider pickup with coordinates`() {
         viewModel.onIntent(FuelCostIntent.AddRider)
         val id = state.riders.single().id
-        viewModel.onIntent(FuelCostIntent.OpenMapPicker(id))
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.RiderPickup(id)))
         viewModel.onIntent(FuelCostIntent.MapCameraIdle(point))
         assertTrue(state.mapPick is MapPickState.Resolved)
 
@@ -185,12 +185,12 @@ class FuelCostViewModelTest {
         reverseResult = LookupResult.Success(null)
         viewModel.onIntent(FuelCostIntent.AddRider)
         val id = state.riders.single().id
-        viewModel.onIntent(FuelCostIntent.OpenMapPicker(id))
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.RiderPickup(id)))
         viewModel.onIntent(FuelCostIntent.MapCameraIdle(point))
         assertEquals(MapPickState.NoAddress, state.mapPick)
 
         viewModel.onIntent(FuelCostIntent.MapPickConfirmed)
-        assertEquals(FuelCostScreen.MapPicker(id), state.screen)
+        assertEquals(FuelCostScreen.MapPicker(LocationField.RiderPickup(id)), state.screen)
         assertEquals("", state.riders.single().pickup)
     }
 
@@ -270,7 +270,7 @@ class FuelCostViewModelTest {
     fun `map search selection keeps place name after camera arrives and confirms`() {
         viewModel.onIntent(FuelCostIntent.AddRider)
         val id = state.riders.single().id
-        viewModel.onIntent(FuelCostIntent.OpenMapPicker(id))
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.RiderPickup(id)))
         val place = Place("강남역", "서울 강남구", GeoPoint(127.0276, 37.4979))
         viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남"))
 
@@ -289,7 +289,7 @@ class FuelCostViewModelTest {
     @Test
     fun `moving map after search selection resolves new address`() {
         viewModel.onIntent(FuelCostIntent.AddRider)
-        viewModel.onIntent(FuelCostIntent.OpenMapPicker(state.riders.single().id))
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.RiderPickup(state.riders.single().id)))
         viewModel.onIntent(FuelCostIntent.MapPlaceSelected(Place("강남역", "주소", GeoPoint(127.0, 37.0))))
         viewModel.onIntent(FuelCostIntent.MapCameraIdle(GeoPoint(127.5, 37.5)))
         assertEquals(MapPickState.Resolved(Place("지도 건물", "지도 주소", point)), state.mapPick)
@@ -334,6 +334,39 @@ class FuelCostViewModelTest {
         addRider("민지", "사당역", "100")
         viewModel.onIntent(FuelCostIntent.Calculate)
         assertEquals(listOf(null, "민지"), state.result?.shares?.map { it.name })
+    }
+
+    @Test
+    fun `origin and destination are confirmed on map with place name and coordinates`() {
+        val origin = Place("강남역", "서울 강남구", GeoPoint(127.0, 37.0))
+        val destination = Place("속초해수욕장", "강원 속초시", GeoPoint(128.6, 38.2))
+
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.Origin))
+        viewModel.onIntent(FuelCostIntent.MapPlaceSelected(origin))
+        viewModel.onIntent(FuelCostIntent.MapCameraIdle(origin.point))
+        viewModel.onIntent(FuelCostIntent.MapPickConfirmed)
+        assertEquals("강남역", state.origin)
+        assertEquals(origin.point, state.originPoint)
+        assertEquals(CurrentLocationState.Idle, state.currentLocation)
+
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.Destination))
+        viewModel.onIntent(FuelCostIntent.MapPlaceSelected(destination))
+        viewModel.onIntent(FuelCostIntent.MapCameraIdle(destination.point))
+        viewModel.onIntent(FuelCostIntent.MapPickConfirmed)
+        assertEquals("속초해수욕장", state.destination)
+        assertEquals(destination.point, state.destinationPoint)
+        assertEquals(FuelCostScreen.Input, state.screen)
+    }
+
+    @Test
+    fun `leaving map without confirming keeps previous location`() {
+        selectPlace(LocationField.Destination)
+        val before = state.destination
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.Destination))
+        viewModel.onIntent(FuelCostIntent.MapCameraIdle(GeoPoint(128.0, 38.0)))
+        viewModel.onIntent(FuelCostIntent.Back)
+        assertEquals(before, state.destination)
+        assertEquals(FuelCostScreen.Input, state.screen)
     }
 
     @Test
@@ -445,7 +478,7 @@ class FuelCostViewModelTest {
     @Test
     fun `map picker falls back to address search for that rider`() {
         val id = addRider("민지", "사당역", "1")
-        viewModel.onIntent(FuelCostIntent.OpenMapPicker(id))
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(LocationField.RiderPickup(id)))
         enterAddress(LocationField.RiderPickup(id), "수원역")
         assertEquals("수원역", state.riders.single().pickup)
         assertEquals(FuelCostScreen.Input, state.screen)

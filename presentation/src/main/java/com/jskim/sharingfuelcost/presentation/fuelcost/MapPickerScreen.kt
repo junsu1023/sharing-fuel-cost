@@ -30,6 +30,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -59,6 +61,8 @@ private const val MAP_MOVE_MILLIS = 300
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MapPickerScreen(
+    title: String,
+    focusSearch: Boolean,
     initialPoint: GeoPoint,
     otherPickups: List<GeoPoint>,
     pick: MapPickState,
@@ -80,7 +84,7 @@ internal fun MapPickerScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.map_picker_title)) },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.cd_back))
@@ -127,6 +131,7 @@ internal fun MapPickerScreen(
                     modifier = Modifier.size(48.dp).offset(y = (-22).dp),
                 )
                 MapSearchPanel(
+                    focusOnOpen = focusSearch,
                     query = query,
                     search = search,
                     onQueryChange = onQueryChange,
@@ -144,6 +149,7 @@ internal fun MapPickerScreen(
 
 @Composable
 private fun MapSearchPanel(
+    focusOnOpen: Boolean,
     query: String,
     search: AddressSearchState,
     onQueryChange: (String) -> Unit,
@@ -151,6 +157,10 @@ private fun MapSearchPanel(
     onSelect: (Place) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (focusOnOpen) focusRequester.requestFocus()
+    }
     Surface(
         modifier = modifier.fillMaxWidth().padding(12.dp),
         shape = MaterialTheme.shapes.medium,
@@ -163,6 +173,7 @@ private fun MapSearchPanel(
                 onValueChange = onQueryChange,
                 label = stringResource(R.string.label_map_search),
                 onSearch = onSearch,
+                modifier = Modifier.focusRequester(focusRequester),
             )
             if (query.isNotBlank() && search != AddressSearchState.Idle) {
                 Column(
