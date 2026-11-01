@@ -32,6 +32,24 @@ internal data class AddressDocument(
 )
 
 @Serializable
+internal data class CoordToAddressResponse(val documents: List<CoordToAddressDocument> = emptyList())
+
+@Serializable
+internal data class CoordToAddressDocument(
+    val address: LotAddressDto? = null,
+    @SerialName("road_address") val roadAddress: RoadAddressDto? = null,
+)
+
+@Serializable
+internal data class LotAddressDto(@SerialName("address_name") val addressName: String = "")
+
+@Serializable
+internal data class RoadAddressDto(
+    @SerialName("address_name") val addressName: String = "",
+    @SerialName("building_name") val buildingName: String = "",
+)
+
+@Serializable
 internal data class KeywordSearchResponse(val documents: List<KeywordDocument> = emptyList())
 
 @Serializable

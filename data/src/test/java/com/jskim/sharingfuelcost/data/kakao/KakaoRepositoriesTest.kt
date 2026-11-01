@@ -87,6 +87,21 @@ class KakaoRepositoriesTest {
     }
 
     @Test
+    fun `reverse geocode prefers building then road then lot address`() {
+        val response = json.decodeFromString<CoordToAddressResponse>(
+            """{"meta":{"total_count":1},"documents":[{"road_address":{"address_name":"도로명","building_name":"건물"},
+            "address":{"address_name":"지번"}}]}""",
+        )
+        val place = response.documents.single().toPlace(a)
+        assertEquals("건물", place?.name)
+        assertEquals("도로명", place?.address)
+
+        val lotOnly = CoordToAddressDocument(address = LotAddressDto("지번"), roadAddress = null).toPlace(a)
+        assertEquals("지번", lotOnly?.name)
+        assertEquals(null, CoordToAddressDocument().toPlace(a))
+    }
+
+    @Test
     fun `search merges address and keyword and drops invalid coordinates`() {
         val service = object : KakaoLocalService {
             override suspend fun searchAddress(query: String) =
@@ -98,6 +113,8 @@ class KakaoRepositoriesTest {
                     KeywordDocument("좌표오류", x = "", y = ""),
                 ),
             )
+
+            override suspend fun coordToAddress(x: String, y: String) = CoordToAddressResponse()
         }
         val result = runBlocking { KakaoPlaceSearchRepository(service, true).search("q") }
         val places = (result as LookupResult.Success).value

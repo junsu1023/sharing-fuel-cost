@@ -1,5 +1,6 @@
 package com.jskim.sharingfuelcost.presentation.fuelcost
 
+import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.LookupResult
@@ -32,6 +33,9 @@ class FuelCostViewModelTest {
     private var routeGate: CompletableDeferred<Unit>? = null
     private var searchResult: LookupResult<List<Place>> = LookupResult.Success(listOf(Place("강남역", "주소", point)))
 
+    private var reverseResult: LookupResult<Place?> = LookupResult.Success(Place("지도 건물", "지도 주소", point))
+    private var locationResult: LookupResult<GeoPoint> = LookupResult.Success(point)
+
     private val viewModel by lazy {
         FuelCostViewModel(
             SettlementCalculator(),
@@ -41,6 +45,10 @@ class FuelCostViewModelTest {
             },
             object : PlaceSearchRepository {
                 override suspend fun search(query: String) = searchResult
+                override suspend fun reverseGeocode(point: GeoPoint) = reverseResult
+            },
+            object : CurrentLocationRepository {
+                override suspend fun currentPoint() = locationResult
             },
         )
     }
@@ -141,6 +149,56 @@ class FuelCostViewModelTest {
         viewModel.onIntent(FuelCostIntent.ConfirmAddress)
         assertEquals("강남역", state.origin)
         assertNull(state.originPoint)
+    }
+
+    @Test
+    fun `map pick resolves address and confirm sets rider pickup with coordinates`() {
+        viewModel.onIntent(FuelCostIntent.AddRider)
+        val id = state.riders.single().id
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(id))
+        viewModel.onIntent(FuelCostIntent.MapCameraIdle(point))
+        assertTrue(state.mapPick is MapPickState.Resolved)
+
+        viewModel.onIntent(FuelCostIntent.MapPickConfirmed)
+        assertEquals(FuelCostScreen.Input, state.screen)
+        assertEquals("지도 건물", state.riders.single().pickup)
+        assertEquals(point, state.riders.single().pickupPoint)
+    }
+
+    @Test
+    fun `map pick without address cannot be confirmed`() {
+        reverseResult = LookupResult.Success(null)
+        viewModel.onIntent(FuelCostIntent.AddRider)
+        val id = state.riders.single().id
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(id))
+        viewModel.onIntent(FuelCostIntent.MapCameraIdle(point))
+        assertEquals(MapPickState.NoAddress, state.mapPick)
+
+        viewModel.onIntent(FuelCostIntent.MapPickConfirmed)
+        assertEquals(FuelCostScreen.MapPicker(id), state.screen)
+        assertEquals("", state.riders.single().pickup)
+    }
+
+    @Test
+    fun `current location fills origin with address and coordinates`() {
+        viewModel.onIntent(FuelCostIntent.UseCurrentLocation)
+        assertEquals(CurrentLocationState.Success, state.currentLocation)
+        assertEquals("지도 건물", state.origin)
+        assertEquals(point, state.originPoint)
+    }
+
+    @Test
+    fun `current location failure and denied permission keep origin editable`() {
+        locationResult = LookupResult.Failure(LookupFailure.LOCATION_UNAVAILABLE)
+        viewModel.onIntent(FuelCostIntent.UseCurrentLocation)
+        assertEquals(CurrentLocationState.Failed(LookupFailure.LOCATION_UNAVAILABLE), state.currentLocation)
+
+        viewModel.onIntent(FuelCostIntent.LocationPermissionDenied)
+        assertEquals(CurrentLocationState.PermissionDenied, state.currentLocation)
+
+        enterAddress(LocationField.Origin, "직접 입력")
+        assertEquals("직접 입력", state.origin)
+        assertEquals(CurrentLocationState.Idle, state.currentLocation)
     }
 
     @Test

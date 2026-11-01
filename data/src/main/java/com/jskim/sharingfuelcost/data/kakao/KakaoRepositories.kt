@@ -46,6 +46,22 @@ internal class KakaoPlaceSearchRepository(
             LookupResult.Success((addresses + keywords).distinctBy { it.name to it.address })
         }
     }
+
+    override suspend fun reverseGeocode(point: GeoPoint): LookupResult<Place?> {
+        if (!isConfigured) return LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
+        return safeLookup {
+            val response = service.coordToAddress(point.longitude.toString(), point.latitude.toString())
+            LookupResult.Success(response.documents.firstOrNull()?.toPlace(point))
+        }
+    }
+}
+
+internal fun CoordToAddressDocument.toPlace(point: GeoPoint): Place? {
+    val address = roadAddress?.addressName?.takeIf { it.isNotBlank() }
+        ?: this.address?.addressName?.takeIf { it.isNotBlank() }
+        ?: return null
+    val name = roadAddress?.buildingName?.takeIf { it.isNotBlank() } ?: address
+    return Place(name = name, address = address, point = point)
 }
 
 internal fun DirectionsResponse.toRouteDistances(pickupCount: Int): LookupResult<RouteDistances> {

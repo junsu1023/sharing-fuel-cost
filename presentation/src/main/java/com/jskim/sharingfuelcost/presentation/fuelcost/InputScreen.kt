@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +24,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,7 +41,11 @@ import com.jskim.sharingfuelcost.presentation.theme.SharingFuelCostTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun InputScreen(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit) {
+internal fun InputScreen(
+    state: FuelCostUiState,
+    onIntent: (FuelCostIntent) -> Unit,
+    onUseCurrentLocation: () -> Unit,
+) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { TopAppBar(title = { Text(stringResource(R.string.input_title)) }) },
@@ -63,7 +69,7 @@ internal fun InputScreen(state: FuelCostUiState, onIntent: (FuelCostIntent) -> U
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            RouteSection(state, onIntent)
+            RouteSection(state, onIntent, onUseCurrentLocation)
             ParticipantsSection(state, onIntent)
             FuelSection(stringResource(R.string.section_fuel)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -94,7 +100,11 @@ internal fun InputScreen(state: FuelCostUiState, onIntent: (FuelCostIntent) -> U
 }
 
 @Composable
-private fun RouteSection(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit) {
+private fun RouteSection(
+    state: FuelCostUiState,
+    onIntent: (FuelCostIntent) -> Unit,
+    onUseCurrentLocation: () -> Unit,
+) {
     FuelSection(stringResource(R.string.section_route)) {
         LocationRow(
             label = stringResource(R.string.label_origin),
@@ -103,9 +113,8 @@ private fun RouteSection(state: FuelCostUiState, onIntent: (FuelCostIntent) -> U
             action = stringResource(R.string.action_search_address),
             onAction = { onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Origin)) },
             iconRes = R.drawable.ic_my_location,
-            // 현재 위치 조회는 미연동이다. 연결되면 출발지 기본값으로 채운다.
-            supporting = stringResource(R.string.current_location_unavailable),
         )
+        CurrentLocationRow(state.currentLocation, onUseCurrentLocation)
         LocationRow(
             label = stringResource(R.string.label_destination),
             value = state.destination,
@@ -114,6 +123,37 @@ private fun RouteSection(state: FuelCostUiState, onIntent: (FuelCostIntent) -> U
             onAction = { onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Destination)) },
             iconRes = R.drawable.ic_flag,
         )
+    }
+}
+
+@Composable
+private fun CurrentLocationRow(location: CurrentLocationState, onUse: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val isError = location is CurrentLocationState.Failed || location == CurrentLocationState.PermissionDenied
+        Text(
+            text = stringResource(
+                when (location) {
+                    CurrentLocationState.Idle -> R.string.current_location_reason
+                    CurrentLocationState.Loading -> R.string.current_location_loading
+                    CurrentLocationState.Success -> R.string.current_location_success
+                    CurrentLocationState.PermissionDenied -> R.string.current_location_denied
+                    is CurrentLocationState.Failed -> location.reason.messageRes()
+                },
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        if (location == CurrentLocationState.Loading) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+        } else {
+            TextButton(onClick = onUse, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.action_use_current_location))
+            }
+        }
     }
 }
 
@@ -282,5 +322,5 @@ private val previewState = FuelCostUiState(
 @Preview(name = "다크, 오류", heightDp = 1400, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun InputScreenPreview() {
-    SharingFuelCostTheme { InputScreen(previewState, {}) }
+    SharingFuelCostTheme { InputScreen(previewState, {}, {}) }
 }
