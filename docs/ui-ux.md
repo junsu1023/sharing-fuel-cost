@@ -9,7 +9,39 @@ MVP의 화면과 UI 상태를 정의한다. 화면 구성은 기획의 입력 �
 - 분위기와 색상은 Open Design으로 정한다. (D-7)
 - 시안이 여러 개면 구현 전에 사용자에게 확인받는다. (D-6)
 
-**현재 상태: 디자인 방향 미정.** 정해지면 색상 토큰과 분위기를 여기에 기록한다.
+**선택한 시안: D "답부터 보기".** 군더더기를 덜어 내고 내야 할 금액을 가장 먼저 크게 보여 줘서, 차 옆에서도 몇 초 만에 확인하고 끝낼 수 있는 분위기다. 원본은 Open Design 프로젝트 `sharing-fuel-cost-design`의 `index.html`이다.
+
+### 색상 토큰
+
+| 역할 | Light | Dark |
+|---|---|---|
+| primary | `#07704B` | `#4ED8A2` |
+| onPrimary | `#FFFFFF` | `#003824` |
+| primaryContainer | `#D6F5E6` | `#005235` |
+| onPrimaryContainer | `#00311F` | `#B8F3D8` |
+| secondary | `#56605B` | `#BAC4BF` |
+| onSecondary | `#FFFFFF` | `#29312D` |
+| secondaryContainer | `#E7EBE9` | `#2C3330` |
+| onSecondaryContainer | `#1B211E` | `#E1E7E4` |
+| background | `#F1F3F2` | `#0C0F0E` |
+| onBackground | `#181C1A` | `#E8ECEA` |
+| surface | `#FFFFFF` | `#171B19` |
+| onSurface | `#181C1A` | `#E8ECEA` |
+| surfaceVariant | `#E7EBE9` | `#2C3330` |
+| onSurfaceVariant | `#4F5853` | `#B9C2BD` |
+| outline | `#7A837E` | `#868F8A` |
+| error | `#C62828` | `#FFB4AB` |
+| onError | `#FFFFFF` | `#690005` |
+
+### 형태와 글꼴
+
+- 모서리: extraSmall 6, small 10, medium 12, large 16, extraLarge 24 (dp)
+- 글꼴: 시안은 Noto Sans KR이다. 앱은 파일을 넣지 않고 시스템 기본 글꼴을 쓴다.
+- 구조: 카드 대신 `surface` 섹션을 전체 폭으로 쌓고 `background` 띠로 구분한다. 입력 섹션 제목은 문장형이다.
+- 입력: 투명 컨테이너와 하단 선만 있는 `TextField`
+- 버튼: 하단 고정 56dp, tonal과 filled를 1:1.6으로 배치. 정산 방식 버튼은 5:7로 나눈다.
+- 금액: 합계 52sp, 개인 26sp ExtraBold. 색 없이 크기와 굵기로만 강조한다.
+- 동적 색상(Material You)은 쓰지 않는다.
 
 ## 사용 흐름
 
