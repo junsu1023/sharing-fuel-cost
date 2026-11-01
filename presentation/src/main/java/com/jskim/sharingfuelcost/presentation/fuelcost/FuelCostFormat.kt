@@ -21,5 +21,9 @@ internal fun metersToKmInput(meters: Long): String =
 internal fun formatTradeDate(date: String): String =
     if (date.length == 8) "${date.take(4)}.${date.substring(4, 6)}.${date.substring(6)}" else date
 
+/** 출발지, 경유 순서대로의 탑승 위치, 목적지를 잇는다. */
+internal fun formatRoute(state: FuelCostUiState): String =
+    (listOf(state.origin) + state.riders.map { it.pickup } + state.destination).joinToString(" → ")
+
 internal fun formatLiters(liters: BigDecimal): String =
     liters.setScale(1, RoundingMode.HALF_UP).toPlainString()

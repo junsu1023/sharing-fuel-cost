@@ -89,7 +89,6 @@
     <string name="failure_location">현재 위치를 가져오지 못했어요. 주소 검색으로 입력해 주세요</string>
     <string name="failure_unexpected">조회에 실패했어요. 다시 시도하거나 직접 입력해 주세요</string>
 
-    <string name="result_trip">%1$s → %2$s</string>
     <string name="result_total_label">전체 기름값</string>
     <string name="result_heading_equal">똑같이 나눠요</string>
     <string name="result_heading_proportional">탄 거리만큼 내고, 나머지는 운전자가 내요</string>
