@@ -4,6 +4,8 @@ import android.content.Context
 import com.jskim.sharingfuelcost.BuildConfig
 import com.jskim.sharingfuelcost.data.kakao.KakaoDataSource
 import com.jskim.sharingfuelcost.data.location.AndroidCurrentLocationRepository
+import com.jskim.sharingfuelcost.data.opinet.OpinetDataSource
+import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.PlaceSearchRepository
 import com.jskim.sharingfuelcost.domain.route.RouteDistanceRepository
@@ -34,6 +36,11 @@ object AppModule {
     @Provides
     fun provideCurrentLocationRepository(@ApplicationContext context: Context): CurrentLocationRepository =
         AndroidCurrentLocationRepository(context)
+
+    @Provides
+    @Singleton
+    fun provideFuelPriceRepository(@ApplicationContext context: Context): FuelPriceRepository =
+        OpinetDataSource(context, BuildConfig.OPINET_API_KEY).fuelPriceRepository
 
     @Provides
     fun provideSettlementCalculator(): SettlementCalculator = SettlementCalculator()

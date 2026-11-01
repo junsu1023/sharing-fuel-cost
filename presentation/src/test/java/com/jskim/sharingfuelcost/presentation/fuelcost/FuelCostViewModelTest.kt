@@ -1,5 +1,8 @@
 package com.jskim.sharingfuelcost.presentation.fuelcost
 
+import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
+import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -37,6 +40,10 @@ class FuelCostViewModelTest {
     private var locationResult: LookupResult<GeoPoint> = LookupResult.Success(point)
 
     private var lastPickups: List<GeoPoint> = emptyList()
+    private var searchCalls = 0
+    private val dispatcher = UnconfinedTestDispatcher()
+    private var fuelPriceResult: LookupResult<List<AverageFuelPrice>> =
+        LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
 
     private val viewModel by lazy {
         FuelCostViewModel(
@@ -49,11 +56,14 @@ class FuelCostViewModelTest {
                     }
             },
             object : PlaceSearchRepository {
-                override suspend fun search(query: String) = searchResult
+                override suspend fun search(query: String) = searchResult.also { searchCalls++ }
                 override suspend fun reverseGeocode(point: GeoPoint) = reverseResult
             },
             object : CurrentLocationRepository {
                 override suspend fun currentPoint() = locationResult
+            },
+            object : FuelPriceRepository {
+                override suspend fun averagePrices() = fuelPriceResult
             },
         )
     }
@@ -61,7 +71,7 @@ class FuelCostViewModelTest {
 
     @Before
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(dispatcher)
     }
 
     @After
@@ -227,6 +237,94 @@ class FuelCostViewModelTest {
         assertEquals(second, state.riders[0].pickupPoint)
         assertEquals("2", state.riders[0].distanceKm)
         assertEquals("1", state.riders[1].distanceKm)
+    }
+
+    @Test
+    fun `typing searches after debounce and only for the latest text`() {
+        viewModel.onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Destination))
+        viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강"))
+        dispatcher.scheduler.advanceTimeBy(100)
+        viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남"))
+        dispatcher.scheduler.advanceTimeBy(299)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(0, searchCalls)
+
+        dispatcher.scheduler.advanceTimeBy(2)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, searchCalls)
+        assertTrue(state.addressSearch is AddressSearchState.Results)
+    }
+
+    @Test
+    fun `clearing text cancels search and resets results`() {
+        viewModel.onIntent(FuelCostIntent.OpenAddressSearch(LocationField.Destination))
+        viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남"))
+        viewModel.onIntent(FuelCostIntent.SearchQueryChanged(""))
+        dispatcher.scheduler.advanceTimeBy(1_000)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(0, searchCalls)
+        assertEquals(AddressSearchState.Idle, state.addressSearch)
+    }
+
+    @Test
+    fun `map search selection keeps place name after camera arrives and confirms`() {
+        viewModel.onIntent(FuelCostIntent.AddRider)
+        val id = state.riders.single().id
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(id))
+        val place = Place("강남역", "서울 강남구", GeoPoint(127.0276, 37.4979))
+        viewModel.onIntent(FuelCostIntent.SearchQueryChanged("강남"))
+
+        viewModel.onIntent(FuelCostIntent.MapPlaceSelected(place))
+        assertEquals(place.point, state.mapCameraTarget)
+        assertEquals("", state.searchQuery)
+
+        viewModel.onIntent(FuelCostIntent.MapCameraIdle(GeoPoint(127.02761, 37.49791)))
+        assertEquals(MapPickState.Resolved(place), state.mapPick)
+
+        viewModel.onIntent(FuelCostIntent.MapPickConfirmed)
+        assertEquals("강남역", state.riders.single().pickup)
+        assertEquals(place.point, state.riders.single().pickupPoint)
+    }
+
+    @Test
+    fun `moving map after search selection resolves new address`() {
+        viewModel.onIntent(FuelCostIntent.AddRider)
+        viewModel.onIntent(FuelCostIntent.OpenMapPicker(state.riders.single().id))
+        viewModel.onIntent(FuelCostIntent.MapPlaceSelected(Place("강남역", "주소", GeoPoint(127.0, 37.0))))
+        viewModel.onIntent(FuelCostIntent.MapCameraIdle(GeoPoint(127.5, 37.5)))
+        assertEquals(MapPickState.Resolved(Place("지도 건물", "지도 주소", point)), state.mapPick)
+    }
+
+    private fun prices() = LookupResult.Success(
+        listOf(
+            AverageFuelPrice(FuelType.GASOLINE, "1667.5".toBigDecimal(), "20261101"),
+            AverageFuelPrice(FuelType.DIESEL, "1500.2".toBigDecimal(), "20261101"),
+        ),
+    )
+
+    @Test
+    fun `average price fills field rounded and follows fuel type`() {
+        fuelPriceResult = prices()
+        assertEquals("1668", state.wonPerLiter)
+        viewModel.onIntent(FuelCostIntent.FuelTypeSelected(FuelType.DIESEL))
+        assertEquals("1500", state.wonPerLiter)
+    }
+
+    @Test
+    fun `manual price is kept until average is applied again`() {
+        fuelPriceResult = prices()
+        viewModel.onIntent(FuelCostIntent.WonPerLiterChanged("1700"))
+        viewModel.onIntent(FuelCostIntent.FuelTypeSelected(FuelType.DIESEL))
+        assertEquals("1700", state.wonPerLiter)
+
+        viewModel.onIntent(FuelCostIntent.ApplyAverageFuelPrice)
+        assertEquals("1500", state.wonPerLiter)
+    }
+
+    @Test
+    fun `average price failure leaves field empty for manual input`() {
+        assertEquals(FuelPriceState.Failed(LookupFailure.NOT_CONFIGURED), state.fuelPrice)
+        assertEquals("", state.wonPerLiter)
     }
 
     @Test

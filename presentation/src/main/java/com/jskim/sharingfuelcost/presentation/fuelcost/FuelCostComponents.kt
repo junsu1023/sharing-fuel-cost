@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
@@ -65,6 +67,7 @@ internal fun FuelTextField(
     suffix: String? = null,
     errorText: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    onSearch: (() -> Unit)? = null,
 ) {
     TextField(
         value = value,
@@ -74,7 +77,11 @@ internal fun FuelTextField(
         isError = errorText != null,
         supportingText = errorText?.let { { Text(it) } },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = if (onSearch != null) ImeAction.Search else ImeAction.Default,
+        ),
+        keyboardActions = KeyboardActions(onSearch = { onSearch?.invoke() }),
         colors = lineFieldColors(),
         modifier = modifier.fillMaxWidth(),
     )

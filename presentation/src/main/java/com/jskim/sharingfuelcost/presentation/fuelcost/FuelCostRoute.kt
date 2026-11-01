@@ -87,6 +87,12 @@ fun FuelCostRoute(viewModel: FuelCostViewModel = hiltViewModel()) {
                 ?: DEFAULT_MAP_POINT,
             otherPickups = state.riders.filter { it.id != screen.riderId }.mapNotNull { it.pickupPoint },
             pick = state.mapPick,
+            cameraTarget = state.mapCameraTarget,
+            query = state.searchQuery,
+            search = state.addressSearch,
+            onQueryChange = { onIntent(FuelCostIntent.SearchQueryChanged(it)) },
+            onSearch = { onIntent(FuelCostIntent.SearchSubmitted) },
+            onSelectPlace = { onIntent(FuelCostIntent.MapPlaceSelected(it)) },
             onCameraIdle = { onIntent(FuelCostIntent.MapCameraIdle(it)) },
             onConfirm = { onIntent(FuelCostIntent.MapPickConfirmed) },
             onUseAddress = {
