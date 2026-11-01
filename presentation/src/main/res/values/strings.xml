@@ -92,7 +92,7 @@
     <string name="result_trip">%1$s → %2$s</string>
     <string name="result_total_label">전체 기름값</string>
     <string name="result_heading_equal">똑같이 나눠요</string>
-    <string name="result_heading_proportional">이동한 만큼 나눠요</string>
+    <string name="result_heading_proportional">탄 거리만큼 내고, 나머지는 운전자가 내요</string>
     <string name="result_participant_meta">%1$s · %2$s km</string>
     <string name="result_formula">%1$s km ÷ %2$s km/L × %3$s원/L</string>
     <string name="role_driver">운전자</string>

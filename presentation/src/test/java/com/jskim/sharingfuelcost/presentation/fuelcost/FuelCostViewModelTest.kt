@@ -529,7 +529,8 @@ class FuelCostViewModelTest {
 
         assertEquals(FuelCostScreen.Result, state.screen)
         assertEquals(33_000L, state.result?.totalCostWon)
-        assertEquals(listOf(13_750L, 13_200L, 6_050L), state.result?.shares?.map { it.amountWon })
+        // 탑승자 합 350km > 전체 250km: 33,000원을 240:110으로 나누고 운전자는 나머지
+        assertEquals(listOf(1L, 22_628L, 10_371L), state.result?.shares?.map { it.amountWon })
     }
 
     @Test
