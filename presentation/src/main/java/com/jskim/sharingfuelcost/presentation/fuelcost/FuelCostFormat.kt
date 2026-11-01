@@ -17,5 +17,9 @@ internal fun formatKm(meters: Long): String =
 internal fun metersToKmInput(meters: Long): String =
     BigDecimal(meters).movePointLeft(3).stripTrailingZeros().toPlainString()
 
+/** yyyyMMdd를 yyyy.MM.dd로 바꾼다. 형식이 다르면 그대로 둔다. */
+internal fun formatTradeDate(date: String): String =
+    if (date.length == 8) "${date.take(4)}.${date.substring(4, 6)}.${date.substring(6)}" else date
+
 internal fun formatLiters(liters: BigDecimal): String =
     liters.setScale(1, RoundingMode.HALF_UP).toPlainString()

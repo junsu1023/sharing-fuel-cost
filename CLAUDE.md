@@ -15,6 +15,7 @@ Kotlin, Jetpack Compose, 멀티모듈 클린 아키텍처로 구현한다.
 | 화면, UI 상태 구현 | `docs/ui-ux.md` | `implement-ui` |
 | 기름값 계산, 정산 로직 | `docs/settlement-rules.md` | `implement-settlement` |
 | 카카오모빌리티 검증, 거리 조회 연동 | `docs/kakao-mobility.md` | `integrate-kakao-route` |
+| 평균 유가, 오피넷 연동 | `docs/opinet.md` | |
 | 작업 마무리, 빌드와 테스트, 보고 | `docs/roadmap.md` | `verify-and-report` |
 
 `instructions/`의 규칙은 `.claude/rules/instructions` 링크를 통해 해당 경로의 파일을 다룰 때 자동으로 적용된다.

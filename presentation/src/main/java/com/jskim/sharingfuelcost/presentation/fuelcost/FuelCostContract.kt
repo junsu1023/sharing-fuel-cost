@@ -1,5 +1,7 @@
 package com.jskim.sharingfuelcost.presentation.fuelcost
 
+import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.Place
@@ -62,6 +64,12 @@ sealed interface CurrentLocationState {
     data class Failed(val reason: LookupFailure) : CurrentLocationState
 }
 
+sealed interface FuelPriceState {
+    data object Loading : FuelPriceState
+    data class Loaded(val prices: List<AverageFuelPrice>) : FuelPriceState
+    data class Failed(val reason: LookupFailure) : FuelPriceState
+}
+
 data class FuelCostUiState(
     val screen: FuelCostScreen = FuelCostScreen.Input,
     val origin: String = "",
@@ -72,6 +80,10 @@ data class FuelCostUiState(
     val riders: List<RiderInput> = emptyList(),
     val kmPerLiter: String = "",
     val wonPerLiter: String = "",
+    val fuelType: FuelType = FuelType.GASOLINE,
+    val fuelPrice: FuelPriceState = FuelPriceState.Loading,
+    /** 사용자가 고치지 않았으면 평균 유가로 채운다. */
+    val wonPerLiterEdited: Boolean = false,
     val method: SettlementMethod = SettlementMethod.EQUAL,
     val totalDistanceKm: String = "",
     val distanceLookup: DistanceLookupState = DistanceLookupState.Idle,
@@ -79,12 +91,17 @@ data class FuelCostUiState(
     val addressSearch: AddressSearchState = AddressSearchState.Idle,
     val mapPick: MapPickState = MapPickState.Idle,
     val currentLocation: CurrentLocationState = CurrentLocationState.Idle,
+    /** 검색 결과를 고르면 지도를 이 위치로 옮긴다. */
+    val mapCameraTarget: GeoPoint? = null,
     val result: SettlementResult? = null,
 ) {
     val kmPerLiterInvalid: Boolean get() = isInvalidPositive(kmPerLiter)
     val wonPerLiterInvalid: Boolean get() = isInvalidPositive(wonPerLiter)
     val totalDistanceInvalid: Boolean get() = isInvalidPositive(totalDistanceKm)
     val canAddRider: Boolean get() = riders.size < MAX_RIDERS
+
+    val averageFuelPrice: AverageFuelPrice?
+        get() = (fuelPrice as? FuelPriceState.Loaded)?.prices?.firstOrNull { it.type == fuelType }
 
     fun riderDistanceInvalid(rider: RiderInput): Boolean {
         if (isInvalidPositive(rider.distanceKm)) return true
@@ -134,6 +151,9 @@ sealed interface FuelCostIntent {
     /** 검색 없이 입력한 내용을 쓴다. 좌표가 없어 자동 거리 조회는 할 수 없다. */
     data object ConfirmAddress : FuelCostIntent
     data class MapCameraIdle(val point: GeoPoint) : FuelCostIntent
+    data class MapPlaceSelected(val place: Place) : FuelCostIntent
+    data class FuelTypeSelected(val type: FuelType) : FuelCostIntent
+    data object ApplyAverageFuelPrice : FuelCostIntent
     data object MapPickConfirmed : FuelCostIntent
     /** 위치 권한을 받은 뒤 보낸다. */
     data object UseCurrentLocation : FuelCostIntent

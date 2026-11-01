@@ -34,10 +34,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.settlement.SettlementMethod
 import com.jskim.sharingfuelcost.presentation.R
 import com.jskim.sharingfuelcost.presentation.theme.SharingFuelCostTheme
+import java.math.RoundingMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +74,7 @@ internal fun InputScreen(
             RouteSection(state, onIntent, onUseCurrentLocation)
             ParticipantsSection(state, onIntent)
             FuelSection(stringResource(R.string.section_fuel)) {
+                FuelTypeSelector(state.fuelType, onIntent)
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     FuelTextField(
                         value = state.kmPerLiter,
@@ -92,6 +95,7 @@ internal fun InputScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                FuelPriceInfo(state, onIntent)
             }
             MethodSection(state.method, onIntent)
             DistanceSection(state, onIntent)
@@ -226,6 +230,69 @@ private fun RiderItem(
             onAction = { onIntent(FuelCostIntent.OpenMapPicker(rider.id)) },
             modifier = Modifier.padding(start = 52.dp),
         )
+    }
+}
+
+@Composable
+private fun FuelTypeSelector(selected: FuelType, onIntent: (FuelCostIntent) -> Unit) {
+    val types = listOf(
+        FuelType.GASOLINE to R.string.fuel_gasoline,
+        FuelType.DIESEL to R.string.fuel_diesel,
+        FuelType.LPG to R.string.fuel_lpg,
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        types.forEachIndexed { index, (type, label) ->
+            SegmentedButton(
+                selected = selected == type,
+                onClick = { onIntent(FuelCostIntent.FuelTypeSelected(type)) },
+                shape = SegmentedButtonDefaults.itemShape(index, types.size, MaterialTheme.shapes.medium),
+                colors = methodColors(),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text(stringResource(label), maxLines = 1) }
+        }
+    }
+}
+
+@Composable
+private fun FuelPriceInfo(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit) {
+    val average = state.averageFuelPrice
+    val fuelName = stringResource(
+        when (state.fuelType) {
+            FuelType.GASOLINE -> R.string.fuel_gasoline
+            FuelType.DIESEL -> R.string.fuel_diesel
+            FuelType.LPG -> R.string.fuel_lpg
+        },
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = when {
+                    average != null -> stringResource(
+                        R.string.fuel_average_applied,
+                        fuelName,
+                        average.wonPerLiter.setScale(0, RoundingMode.HALF_UP).toPlainString(),
+                        formatTradeDate(average.tradeDate),
+                    )
+                    state.fuelPrice == FuelPriceState.Loading -> stringResource(R.string.fuel_price_loading)
+                    else -> stringResource(R.string.fuel_price_failed)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (average != null) {
+                Text(
+                    text = stringResource(R.string.fuel_price_source),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (average != null && state.wonPerLiterEdited) {
+            TextButton(
+                onClick = { onIntent(FuelCostIntent.ApplyAverageFuelPrice) },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text(stringResource(R.string.action_apply_average_price)) }
+        }
     }
 }
 

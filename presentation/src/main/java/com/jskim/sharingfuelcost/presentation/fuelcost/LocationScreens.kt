@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -50,13 +49,8 @@ internal fun AddressSearchScreen(
                 value = query,
                 onValueChange = onQueryChange,
                 label = stringResource(R.string.label_address),
+                onSearch = onSearch,
             )
-            Button(
-                onClick = onSearch,
-                enabled = query.isNotBlank() && search != AddressSearchState.Loading,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            ) { Text(stringResource(R.string.action_search)) }
             when (search) {
                 AddressSearchState.Idle -> Unit
                 AddressSearchState.Loading -> CircularProgressIndicator()
@@ -91,7 +85,7 @@ private fun UseTypedButton(query: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PlaceRow(place: Place, onClick: () -> Unit) {
+internal fun PlaceRow(place: Place, onClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(
             modifier = Modifier.heightIn(min = 56.dp).padding(vertical = 8.dp),

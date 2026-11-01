@@ -2,10 +2,12 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.LookupResult
+import com.jskim.sharingfuelcost.domain.route.Place
 import com.jskim.sharingfuelcost.domain.route.PlaceSearchRepository
 import com.jskim.sharingfuelcost.domain.route.RouteDistanceRepository
 import com.jskim.sharingfuelcost.domain.settlement.RiderTrip
@@ -15,12 +17,20 @@ import com.jskim.sharingfuelcost.domain.settlement.SettlementOutcome
 import com.jskim.sharingfuelcost.domain.settlement.kmToMeters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.RoundingMode
 import javax.inject.Inject
+import kotlin.math.abs
+
+private const val SEARCH_DEBOUNCE_MILLIS = 300L
+
+/** 카메라 좌표에 생기는 작은 오차를 무시하는 범위(약 20m) */
+private const val SAME_POINT_DEGREES = 0.0002
 
 @HiltViewModel
 class FuelCostViewModel @Inject constructor(
@@ -28,6 +38,7 @@ class FuelCostViewModel @Inject constructor(
     private val routeDistanceRepository: RouteDistanceRepository,
     private val placeSearchRepository: PlaceSearchRepository,
     private val currentLocationRepository: CurrentLocationRepository,
+    private val fuelPriceRepository: FuelPriceRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FuelCostUiState())
@@ -39,10 +50,28 @@ class FuelCostViewModel @Inject constructor(
     private var mapJob: Job? = null
     private var locationJob: Job? = null
 
+    /** 검색으로 고른 장소. 카메라 이동이 끝나도 이름을 주소로 덮어쓰지 않게 기억한다. */
+    private var pendingMapPlace: Place? = null
+
+    init {
+        viewModelScope.launch {
+            val result = fuelPriceRepository.averagePrices()
+            _uiState.update { state ->
+                when (result) {
+                    is LookupResult.Success ->
+                        state.copy(fuelPrice = FuelPriceState.Loaded(result.value)).withAveragePriceIfNotEdited()
+                    is LookupResult.Failure -> state.copy(fuelPrice = FuelPriceState.Failed(result.reason))
+                }
+            }
+        }
+    }
+
     fun onIntent(intent: FuelCostIntent) {
         when (intent) {
             FuelCostIntent.DistanceLookupClicked -> lookupDistances()
             FuelCostIntent.SearchSubmitted -> searchPlaces()
+            is FuelCostIntent.SearchQueryChanged -> onSearchQueryChanged(intent.value)
+            is FuelCostIntent.MapPlaceSelected -> selectMapPlace(intent.place)
             FuelCostIntent.AddRider -> if (_uiState.value.canAddRider) {
                 val rider = RiderInput(nextRiderId++)
                 updateRoute { it.copy(riders = it.riders + rider) }
@@ -75,7 +104,10 @@ class FuelCostViewModel @Inject constructor(
         is FuelCostIntent.RiderDistanceChanged ->
             state.updateRider(intent.id) { it.copy(distanceKm = intent.value.decimalOnly()) }.manualDistance()
         is FuelCostIntent.KmPerLiterChanged -> state.copy(kmPerLiter = intent.value.decimalOnly())
-        is FuelCostIntent.WonPerLiterChanged -> state.copy(wonPerLiter = intent.value.decimalOnly())
+        is FuelCostIntent.WonPerLiterChanged ->
+            state.copy(wonPerLiter = intent.value.decimalOnly(), wonPerLiterEdited = true)
+        is FuelCostIntent.FuelTypeSelected -> state.copy(fuelType = intent.type).withAveragePriceIfNotEdited()
+        FuelCostIntent.ApplyAverageFuelPrice -> state.copy(wonPerLiterEdited = false).withAveragePriceIfNotEdited()
         is FuelCostIntent.MethodSelected -> state.copy(method = intent.method)
         is FuelCostIntent.TotalDistanceChanged ->
             state.copy(totalDistanceKm = intent.value.decimalOnly()).manualDistance()
@@ -87,8 +119,10 @@ class FuelCostViewModel @Inject constructor(
         is FuelCostIntent.OpenMapPicker -> state.copy(
             screen = FuelCostScreen.MapPicker(intent.riderId),
             mapPick = MapPickState.Idle,
+            mapCameraTarget = null,
+            searchQuery = "",
+            addressSearch = AddressSearchState.Idle,
         )
-        is FuelCostIntent.SearchQueryChanged -> state.copy(searchQuery = intent.value)
         FuelCostIntent.LocationPermissionDenied -> state.copy(currentLocation = CurrentLocationState.PermissionDenied)
         FuelCostIntent.Calculate -> state.calculate()
         else -> state
@@ -122,26 +156,65 @@ class FuelCostViewModel @Inject constructor(
         }
     }
 
+    private fun onSearchQueryChanged(value: String) {
+        if (value == _uiState.value.searchQuery) return
+        searchJob?.cancel()
+        _uiState.update { state ->
+            state.copy(
+                searchQuery = value,
+                addressSearch = if (value.isBlank()) AddressSearchState.Idle else state.addressSearch,
+            )
+        }
+        if (value.isBlank()) return
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            runSearch(value.trim())
+        }
+    }
+
     private fun searchPlaces() {
         val query = _uiState.value.searchQuery.trim()
         if (query.isEmpty()) return
-        _uiState.update { it.copy(addressSearch = AddressSearchState.Loading) }
         searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            val result = placeSearchRepository.search(query)
-            _uiState.update {
-                it.copy(
-                    addressSearch = when (result) {
-                        is LookupResult.Success -> AddressSearchState.Results(result.value)
-                        is LookupResult.Failure -> AddressSearchState.Failed(result.reason)
-                    },
-                )
-            }
+        searchJob = viewModelScope.launch { runSearch(query) }
+    }
+
+    /** 입력 중에는 이전 결과를 유지해 목록이 깜빡이지 않게 한다. */
+    private suspend fun runSearch(query: String) {
+        _uiState.update { state ->
+            if (state.addressSearch is AddressSearchState.Results) state
+            else state.copy(addressSearch = AddressSearchState.Loading)
+        }
+        val result = placeSearchRepository.search(query)
+        _uiState.update {
+            it.copy(
+                addressSearch = when (result) {
+                    is LookupResult.Success -> AddressSearchState.Results(result.value)
+                    is LookupResult.Failure -> AddressSearchState.Failed(result.reason)
+                },
+            )
+        }
+    }
+
+    private fun selectMapPlace(place: Place) {
+        searchJob?.cancel()
+        mapJob?.cancel()
+        pendingMapPlace = place
+        _uiState.update {
+            it.copy(
+                mapPick = MapPickState.Resolved(place),
+                mapCameraTarget = place.point,
+                searchQuery = "",
+                addressSearch = AddressSearchState.Idle,
+            )
         }
     }
 
     private fun resolveMapPoint(point: GeoPoint) {
-        _uiState.update { it.copy(mapPick = MapPickState.Loading) }
+        val pending = pendingMapPlace
+        pendingMapPlace = null
+        if (pending != null && pending.point.isNear(point)) return
+        _uiState.update { it.copy(mapPick = MapPickState.Loading, addressSearch = AddressSearchState.Idle) }
         mapJob?.cancel()
         mapJob = viewModelScope.launch {
             val result = placeSearchRepository.reverseGeocode(point)
@@ -219,6 +292,18 @@ class FuelCostViewModel @Inject constructor(
                 state
             }
             transform(cleared).copy(distanceLookup = DistanceLookupState.Idle)
+        }
+    }
+
+    private fun GeoPoint.isNear(other: GeoPoint): Boolean =
+        abs(longitude - other.longitude) < SAME_POINT_DEGREES && abs(latitude - other.latitude) < SAME_POINT_DEGREES
+
+    private fun FuelCostUiState.withAveragePriceIfNotEdited(): FuelCostUiState {
+        val average = averageFuelPrice
+        return if (wonPerLiterEdited || average == null) {
+            this
+        } else {
+            copy(wonPerLiter = average.wonPerLiter.setScale(0, RoundingMode.HALF_UP).toPlainString())
         }
     }
 
