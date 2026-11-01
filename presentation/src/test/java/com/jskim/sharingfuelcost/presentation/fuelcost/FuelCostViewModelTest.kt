@@ -482,6 +482,17 @@ class FuelCostViewModelTest {
     }
 
     @Test
+    fun `route text lists origin pickups in order and destination`() {
+        val state = FuelCostUiState(
+            origin = "성균관대역",
+            destination = "속초",
+            riders = listOf(RiderInput(0, pickup = "평택역"), RiderInput(1, pickup = "의왕역")),
+        )
+        assertEquals("성균관대역 → 평택역 → 의왕역 → 속초", formatRoute(state))
+        assertEquals("성균관대역 → 속초", formatRoute(state.copy(riders = emptyList())))
+    }
+
+    @Test
     fun `riders are limited to five`() {
         repeat(6) { viewModel.onIntent(FuelCostIntent.AddRider) }
         assertEquals(MAX_RIDERS, state.riders.size)

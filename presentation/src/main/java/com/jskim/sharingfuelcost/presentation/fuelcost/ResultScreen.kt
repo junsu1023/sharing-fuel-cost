@@ -87,7 +87,7 @@ internal fun ResultScreen(state: FuelCostUiState, result: SettlementResult, onBa
             FuelSection(title = null) {
                 Column {
                     Text(
-                        text = stringResource(R.string.result_trip, state.origin, state.destination),
+                        text = formatRoute(state),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -190,7 +190,7 @@ private fun buildShareText(
     result: SettlementResult,
     methodName: String,
 ): String = buildList {
-    add(context.getString(R.string.result_trip, state.origin, state.destination))
+    add(formatRoute(state))
     add(context.getString(R.string.share_total_distance, formatKm(result.totalDistanceMeters)))
     add(context.getString(R.string.share_fuel_used, formatLiters(result.fuelLiters)))
     add(context.getString(R.string.share_total_cost, formatWon(result.totalCostWon)))
