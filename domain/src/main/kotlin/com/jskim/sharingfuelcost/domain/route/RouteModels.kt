@@ -23,6 +23,7 @@ enum class LookupFailure {
     UNAUTHORIZED,
     QUOTA_EXCEEDED,
     NETWORK,
+    LOCATION_UNAVAILABLE,
     UNEXPECTED,
 }
 
@@ -41,4 +42,12 @@ interface RouteDistanceRepository {
 
 interface PlaceSearchRepository {
     suspend fun search(query: String): LookupResult<List<Place>>
+
+    /** 좌표의 주소를 찾는다. 주소가 없는 좌표(바다 등)이면 null이다. */
+    suspend fun reverseGeocode(point: GeoPoint): LookupResult<Place?>
+}
+
+interface CurrentLocationRepository {
+    /** 현재 위치를 한 번만 가져온다. 위치 권한은 호출 전에 받아야 한다. */
+    suspend fun currentPoint(): LookupResult<GeoPoint>
 }

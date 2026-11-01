@@ -7,9 +7,11 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-val kakaoRestApiKey: String = Properties().apply {
+val localProperties = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
-}.getProperty("kakao_rest_api_key").orEmpty()
+}
+val kakaoRestApiKey: String = localProperties.getProperty("kakao_rest_api_key").orEmpty()
+val kakaoNativeAppKey: String = localProperties.getProperty("kakao_native_app_key").orEmpty()
 
 android {
     namespace = "com.jskim.sharingfuelcost"
@@ -20,6 +22,7 @@ android {
         versionName = "1.0"
 
         buildConfigField("String", "KAKAO_REST_API_KEY", "\"$kakaoRestApiKey\"")
+        buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoNativeAppKey\"")
     }
 
     buildFeatures {
@@ -47,6 +50,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.hilt.android)
+    implementation(libs.kakao.map)
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

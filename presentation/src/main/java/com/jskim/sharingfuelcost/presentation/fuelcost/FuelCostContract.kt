@@ -46,6 +46,22 @@ sealed interface AddressSearchState {
     data class Failed(val reason: LookupFailure) : AddressSearchState
 }
 
+sealed interface MapPickState {
+    data object Idle : MapPickState
+    data object Loading : MapPickState
+    data class Resolved(val place: Place) : MapPickState
+    data object NoAddress : MapPickState
+    data class Failed(val reason: LookupFailure) : MapPickState
+}
+
+sealed interface CurrentLocationState {
+    data object Idle : CurrentLocationState
+    data object Loading : CurrentLocationState
+    data object Success : CurrentLocationState
+    data object PermissionDenied : CurrentLocationState
+    data class Failed(val reason: LookupFailure) : CurrentLocationState
+}
+
 data class FuelCostUiState(
     val screen: FuelCostScreen = FuelCostScreen.Input,
     val origin: String = "",
@@ -61,6 +77,8 @@ data class FuelCostUiState(
     val distanceLookup: DistanceLookupState = DistanceLookupState.Idle,
     val searchQuery: String = "",
     val addressSearch: AddressSearchState = AddressSearchState.Idle,
+    val mapPick: MapPickState = MapPickState.Idle,
+    val currentLocation: CurrentLocationState = CurrentLocationState.Idle,
     val result: SettlementResult? = null,
 ) {
     val kmPerLiterInvalid: Boolean get() = isInvalidPositive(kmPerLiter)
@@ -115,6 +133,11 @@ sealed interface FuelCostIntent {
     data class PlaceSelected(val place: Place) : FuelCostIntent
     /** 검색 없이 입력한 내용을 쓴다. 좌표가 없어 자동 거리 조회는 할 수 없다. */
     data object ConfirmAddress : FuelCostIntent
+    data class MapCameraIdle(val point: GeoPoint) : FuelCostIntent
+    data object MapPickConfirmed : FuelCostIntent
+    /** 위치 권한을 받은 뒤 보낸다. */
+    data object UseCurrentLocation : FuelCostIntent
+    data object LocationPermissionDenied : FuelCostIntent
     data object Calculate : FuelCostIntent
     data object Back : FuelCostIntent
 }

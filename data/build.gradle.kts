@@ -9,10 +9,11 @@ android {
 
 dependencies {
     implementation(project(":domain"))
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.kotlinx.serialization)
     testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.core)
 }

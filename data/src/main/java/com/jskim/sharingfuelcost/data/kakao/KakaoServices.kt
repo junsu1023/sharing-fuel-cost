@@ -18,4 +18,7 @@ internal interface KakaoLocalService {
 
     @GET("v2/local/search/keyword.json")
     suspend fun searchKeyword(@Query("query") query: String): KeywordSearchResponse
+
+    @GET("v2/local/geo/coord2address.json")
+    suspend fun coordToAddress(@Query("x") x: String, @Query("y") y: String): CoordToAddressResponse
 }

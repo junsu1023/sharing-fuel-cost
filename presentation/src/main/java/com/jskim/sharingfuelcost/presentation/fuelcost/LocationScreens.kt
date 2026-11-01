@@ -110,30 +110,13 @@ private fun PlaceRow(place: Place, onClick: () -> Unit) {
     }
 }
 
-/** 지도 SDK는 미연동이다. 연결 전까지 주소 검색으로 대체한다. */
-@Composable
-internal fun MapPickerScreen(onUseAddress: () -> Unit, onBack: () -> Unit) {
-    LocationScaffold(stringResource(R.string.map_picker_title), onBack) {
-        FuelSection(title = null) {
-            Text(
-                text = stringResource(R.string.map_unavailable),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Button(
-                onClick = onUseAddress,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            ) { Text(stringResource(R.string.action_enter_by_address)) }
-        }
-    }
-}
-
 internal fun LookupFailure.messageRes(): Int = when (this) {
     LookupFailure.NOT_CONFIGURED -> R.string.failure_not_configured
     LookupFailure.NO_ROUTE -> R.string.failure_no_route
     LookupFailure.UNAUTHORIZED -> R.string.failure_unauthorized
     LookupFailure.QUOTA_EXCEEDED -> R.string.failure_quota
     LookupFailure.NETWORK -> R.string.failure_network
+    LookupFailure.LOCATION_UNAVAILABLE -> R.string.failure_location
     LookupFailure.UNEXPECTED -> R.string.failure_unexpected
 }
 
@@ -196,11 +179,4 @@ private fun AddressSearchFailedPreview() {
             onBack = {},
         )
     }
-}
-
-@Preview(name = "라이트")
-@Preview(name = "다크", uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun MapPickerPreview() {
-    SharingFuelCostTheme { MapPickerScreen({}, {}) }
 }

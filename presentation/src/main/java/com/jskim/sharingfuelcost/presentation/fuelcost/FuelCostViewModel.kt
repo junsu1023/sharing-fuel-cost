@@ -2,7 +2,9 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
+import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.LookupResult
 import com.jskim.sharingfuelcost.domain.route.PlaceSearchRepository
 import com.jskim.sharingfuelcost.domain.route.RouteDistanceRepository
@@ -25,6 +27,7 @@ class FuelCostViewModel @Inject constructor(
     private val calculator: SettlementCalculator,
     private val routeDistanceRepository: RouteDistanceRepository,
     private val placeSearchRepository: PlaceSearchRepository,
+    private val currentLocationRepository: CurrentLocationRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FuelCostUiState())
@@ -33,6 +36,8 @@ class FuelCostViewModel @Inject constructor(
     private var nextRiderId = 0L
     private var lookupJob: Job? = null
     private var searchJob: Job? = null
+    private var mapJob: Job? = null
+    private var locationJob: Job? = null
 
     fun onIntent(intent: FuelCostIntent) {
         when (intent) {
@@ -47,10 +52,18 @@ class FuelCostViewModel @Inject constructor(
             is FuelCostIntent.MoveRider ->
                 updateRoute { it.copy(riders = it.riders.moved(intent.id, intent.offset)) }
             is FuelCostIntent.PlaceSelected ->
-                applyLocation(intent.place.name, intent.place.point)
+                applySearchedLocation(intent.place.name, intent.place.point)
             FuelCostIntent.ConfirmAddress -> {
                 val address = _uiState.value.searchQuery.trim()
-                if (address.isNotEmpty()) applyLocation(address, null)
+                if (address.isNotEmpty()) applySearchedLocation(address, null)
+            }
+            is FuelCostIntent.MapCameraIdle -> resolveMapPoint(intent.point)
+            FuelCostIntent.MapPickConfirmed -> confirmMapPick()
+            FuelCostIntent.UseCurrentLocation -> useCurrentLocation()
+            FuelCostIntent.Back -> {
+                searchJob?.cancel()
+                mapJob?.cancel()
+                _uiState.update { it.copy(screen = FuelCostScreen.Input) }
             }
             else -> _uiState.update { reduce(it, intent) }
         }
@@ -71,10 +84,13 @@ class FuelCostViewModel @Inject constructor(
             searchQuery = state.valueOf(intent.field),
             addressSearch = AddressSearchState.Idle,
         )
-        is FuelCostIntent.OpenMapPicker -> state.copy(screen = FuelCostScreen.MapPicker(intent.riderId))
+        is FuelCostIntent.OpenMapPicker -> state.copy(
+            screen = FuelCostScreen.MapPicker(intent.riderId),
+            mapPick = MapPickState.Idle,
+        )
         is FuelCostIntent.SearchQueryChanged -> state.copy(searchQuery = intent.value)
+        FuelCostIntent.LocationPermissionDenied -> state.copy(currentLocation = CurrentLocationState.PermissionDenied)
         FuelCostIntent.Calculate -> state.calculate()
-        FuelCostIntent.Back -> state.copy(screen = FuelCostScreen.Input)
         else -> state
     }
 
@@ -124,19 +140,73 @@ class FuelCostViewModel @Inject constructor(
         }
     }
 
-    private fun applyLocation(label: String, point: GeoPoint?) {
-        searchJob?.cancel()
-        updateRoute { state ->
-            val field = (state.screen as? FuelCostScreen.AddressSearch)?.field ?: return@updateRoute state
-            val updated = when (field) {
-                LocationField.Origin -> state.copy(origin = label, originPoint = point)
-                LocationField.Destination -> state.copy(destination = label, destinationPoint = point)
-                is LocationField.RiderPickup -> state.updateRider(field.riderId) {
-                    it.copy(pickup = label, pickupPoint = point)
+    private fun resolveMapPoint(point: GeoPoint) {
+        _uiState.update { it.copy(mapPick = MapPickState.Loading) }
+        mapJob?.cancel()
+        mapJob = viewModelScope.launch {
+            val result = placeSearchRepository.reverseGeocode(point)
+            _uiState.update {
+                it.copy(
+                    mapPick = when (result) {
+                        is LookupResult.Success -> result.value?.let(MapPickState::Resolved) ?: MapPickState.NoAddress
+                        is LookupResult.Failure -> MapPickState.Failed(result.reason)
+                    },
+                )
+            }
+        }
+    }
+
+    private fun confirmMapPick() {
+        val state = _uiState.value
+        val screen = state.screen as? FuelCostScreen.MapPicker ?: return
+        val place = (state.mapPick as? MapPickState.Resolved)?.place ?: return
+        updateRoute {
+            it.withLocation(LocationField.RiderPickup(screen.riderId), place.name, place.point)
+                .copy(screen = FuelCostScreen.Input)
+        }
+    }
+
+    private fun useCurrentLocation() {
+        _uiState.update { it.copy(currentLocation = CurrentLocationState.Loading) }
+        locationJob?.cancel()
+        locationJob = viewModelScope.launch {
+            val failed: (LookupFailure) -> Unit = { reason ->
+                _uiState.update { it.copy(currentLocation = CurrentLocationState.Failed(reason)) }
+            }
+            when (val located = currentLocationRepository.currentPoint()) {
+                is LookupResult.Failure -> failed(located.reason)
+                is LookupResult.Success -> when (val found = placeSearchRepository.reverseGeocode(located.value)) {
+                    is LookupResult.Failure -> failed(found.reason)
+                    is LookupResult.Success -> {
+                        val place = found.value
+                        if (place == null) {
+                            failed(LookupFailure.LOCATION_UNAVAILABLE)
+                        } else {
+                            updateRoute {
+                                it.withLocation(LocationField.Origin, place.name, place.point)
+                                    .copy(currentLocation = CurrentLocationState.Success)
+                            }
+                        }
+                    }
                 }
             }
-            updated.copy(screen = FuelCostScreen.Input)
         }
+    }
+
+    private fun applySearchedLocation(label: String, point: GeoPoint?) {
+        searchJob?.cancel()
+        val field = (_uiState.value.screen as? FuelCostScreen.AddressSearch)?.field ?: return
+        if (field == LocationField.Origin) locationJob?.cancel()
+        updateRoute { state ->
+            val updated = state.withLocation(field, label, point).copy(screen = FuelCostScreen.Input)
+            if (field == LocationField.Origin) updated.copy(currentLocation = CurrentLocationState.Idle) else updated
+        }
+    }
+
+    private fun FuelCostUiState.withLocation(field: LocationField, label: String, point: GeoPoint?) = when (field) {
+        LocationField.Origin -> copy(origin = label, originPoint = point)
+        LocationField.Destination -> copy(destination = label, destinationPoint = point)
+        is LocationField.RiderPickup -> updateRider(field.riderId) { it.copy(pickup = label, pickupPoint = point) }
     }
 
     /** 경로가 바뀌면 진행 중인 조회를 취소하고, 이전 경로로 조회한 거리를 지운다. */
