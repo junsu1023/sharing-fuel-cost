@@ -123,7 +123,7 @@ class FuelCostViewModel @Inject constructor(
                 viewModelScope.launch { myCarRepository.clear() }
             }
             FuelCostIntent.Calculate -> {
-                _uiState.update { it.calculate() }
+                _uiState.update { reduce(it, intent) }
                 saveRecord()
             }
             FuelCostIntent.OpenHistory -> {
@@ -173,6 +173,7 @@ class FuelCostViewModel @Inject constructor(
         is FuelCostIntent.FuelTypeSelected -> state.copy(fuelType = intent.type).withAveragePriceIfNotEdited()
         FuelCostIntent.ApplyAverageFuelPrice -> state.copy(wonPerLiterEdited = false).withAveragePriceIfNotEdited()
         is FuelCostIntent.MethodSelected -> state.copy(method = intent.method)
+        is FuelCostIntent.OpenRecord -> state.copy(screen = FuelCostScreen.HistoryDetail(intent.createdAtMillis))
         is FuelCostIntent.TotalDistanceChanged ->
             state.copy(totalDistanceKm = intent.value.decimalOnly()).manualDistance()
         is FuelCostIntent.OpenAddressSearch -> state.copy(
@@ -188,7 +189,7 @@ class FuelCostViewModel @Inject constructor(
             addressSearch = AddressSearchState.Idle,
         )
         FuelCostIntent.LocationPermissionDenied -> state.copy(currentLocation = CurrentLocationState.PermissionDenied)
-        is FuelCostIntent.OpenRecord -> state.copy(screen = FuelCostScreen.HistoryDetail(intent.createdAtMillis))
+        FuelCostIntent.Calculate -> state.calculate()
         else -> state
     }
 
