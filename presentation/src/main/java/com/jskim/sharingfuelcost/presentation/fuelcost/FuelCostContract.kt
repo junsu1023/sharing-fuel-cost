@@ -67,6 +67,8 @@ sealed interface CurrentLocationState {
     data object Loading : CurrentLocationState
     data object Success : CurrentLocationState
     data object PermissionDenied : CurrentLocationState
+    /** 시스템이 더 이상 권한 창을 띄우지 않는다. 앱 설정에서만 허용할 수 있다. */
+    data object PermissionBlocked : CurrentLocationState
     data class Failed(val reason: LookupFailure) : CurrentLocationState
 }
 
@@ -203,6 +205,7 @@ sealed interface FuelCostIntent {
     /** 위치 권한을 받은 뒤 보낸다. */
     data object UseCurrentLocation : FuelCostIntent
     data object LocationPermissionDenied : FuelCostIntent
+    data object LocationPermissionBlocked : FuelCostIntent
     data object Calculate : FuelCostIntent
     data object Back : FuelCostIntent
 }

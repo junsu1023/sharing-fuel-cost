@@ -68,6 +68,7 @@
     <string name="cd_open_history">정산 기록</string>
     <string name="cd_delete_record">이 기록 삭제</string>
     <string name="action_use_current_location">현재 위치 사용</string>
+    <string name="action_open_settings">설정 열기</string>
     <string name="action_use_this_location">이 위치 사용</string>
     <string name="action_use_address">입력한 내용 그대로 사용</string>
     <string name="action_enter_by_address">주소로 입력</string>
@@ -81,6 +82,7 @@
     <string name="current_location_reason">현재 위치를 출발지로 쓰려면 위치 권한이 필요해요</string>
     <string name="current_location_loading">현재 위치를 확인하고 있어요</string>
     <string name="current_location_success">현재 위치로 자동 입력했어요</string>
+    <string name="current_location_blocked">위치 권한이 꺼져 있어요. 설정에서 허용하거나 주소로 입력해 주세요</string>
     <string name="current_location_denied">위치 권한이 없어요. 주소 검색으로 입력해 주세요</string>
     <string name="address_search_empty">검색 결과가 없어요. 입력한 내용을 그대로 쓰면 거리는 직접 입력해야 해요</string>
     <string name="map_unavailable">지도를 불러오지 못했어요. 주소로 입력해 주세요</string>

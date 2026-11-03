@@ -47,6 +47,7 @@ internal fun InputScreen(
     state: FuelCostUiState,
     onIntent: (FuelCostIntent) -> Unit,
     onUseCurrentLocation: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -77,7 +78,7 @@ internal fun InputScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            RouteSection(state, onIntent, onUseCurrentLocation)
+            RouteSection(state, onIntent, onUseCurrentLocation, onOpenLocationSettings)
             ParticipantsSection(state, onIntent)
             FuelSection(stringResource(R.string.section_fuel)) {
                 LocationRow(
@@ -125,6 +126,7 @@ private fun RouteSection(
     state: FuelCostUiState,
     onIntent: (FuelCostIntent) -> Unit,
     onUseCurrentLocation: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
 ) {
     FuelSection(stringResource(R.string.section_route)) {
         LocationRow(
@@ -135,7 +137,7 @@ private fun RouteSection(
             onAction = { onIntent(FuelCostIntent.OpenMapPicker(LocationField.Origin)) },
             iconRes = R.drawable.ic_my_location,
         )
-        CurrentLocationRow(state.currentLocation, onUseCurrentLocation)
+        CurrentLocationRow(state.currentLocation, onUseCurrentLocation, onOpenLocationSettings)
         LocationRow(
             label = stringResource(R.string.label_destination),
             value = state.destination,
@@ -148,12 +150,13 @@ private fun RouteSection(
 }
 
 @Composable
-private fun CurrentLocationRow(location: CurrentLocationState, onUse: () -> Unit) {
+private fun CurrentLocationRow(location: CurrentLocationState, onUse: () -> Unit, onOpenSettings: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val isError = location is CurrentLocationState.Failed || location == CurrentLocationState.PermissionDenied
+        val isError = location is CurrentLocationState.Failed || location == CurrentLocationState.PermissionDenied ||
+            location == CurrentLocationState.PermissionBlocked
         Text(
             text = stringResource(
                 when (location) {
@@ -161,6 +164,7 @@ private fun CurrentLocationRow(location: CurrentLocationState, onUse: () -> Unit
                     CurrentLocationState.Loading -> R.string.current_location_loading
                     CurrentLocationState.Success -> R.string.current_location_success
                     CurrentLocationState.PermissionDenied -> R.string.current_location_denied
+                    CurrentLocationState.PermissionBlocked -> R.string.current_location_blocked
                     is CurrentLocationState.Failed -> location.reason.messageRes()
                 },
             ),
@@ -171,8 +175,9 @@ private fun CurrentLocationRow(location: CurrentLocationState, onUse: () -> Unit
         if (location == CurrentLocationState.Loading) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp))
         } else {
-            TextButton(onClick = onUse, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.action_use_current_location))
+            val blocked = location == CurrentLocationState.PermissionBlocked
+            TextButton(onClick = if (blocked) onOpenSettings else onUse, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(if (blocked) R.string.action_open_settings else R.string.action_use_current_location))
             }
         }
     }
@@ -420,5 +425,5 @@ private val previewState = FuelCostUiState(
 @Preview(name = "다크, 오류", heightDp = 1400, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun InputScreenPreview() {
-    SharingFuelCostTheme { InputScreen(previewState, {}, {}) }
+    SharingFuelCostTheme { InputScreen(previewState, {}, {}, {}) }
 }
