@@ -65,3 +65,6 @@
 3. REST API 키를 발급한다. (길찾기, 로컬)
 4. Android 플랫폼에 패키지명 `com.jskim.sharingfuelcost`와 키 해시를 등록하고 네이티브 앱 키를 확인한다. (지도)
 5. 카카오내비 또는 길찾기 API에 별도 활성화 항목이 보이면 켠다. 문서로 확인하지 못해 실제 호출의 `-3`, `-5` 오류로 확인한다.
+6. 출시 전, 릴리스 키의 키 해시를 [앱] > [플랫폼 키] > [네이티브 앱 키]에 추가한다. 등록하지 않으면 출시 빌드에서 지도 인증이 실패한다. ([Android 시작하기](https://developers.kakao.com/docs/ko/android/getting-started))
+   - 직접 서명: `keytool -exportcert -alias <RELEASE_KEY_ALIAS> -keystore <RELEASE_KEY_PATH> | openssl sha1 -binary | openssl base64`
+   - Google Play 앱 서명: Play Console [설정] > [앱 무결성]의 SHA-1 인증서 지문을 Base64로 바꿔 등록한다. `echo "<SHA-1 지문, 콜론 제외>" | xxd -r -p | openssl base64`
