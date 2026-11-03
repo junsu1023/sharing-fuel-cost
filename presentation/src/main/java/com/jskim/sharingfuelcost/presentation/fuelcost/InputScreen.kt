@@ -102,6 +102,7 @@ internal fun InputScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                MyCarRow(state, onIntent)
                 FuelPriceInfo(state, onIntent)
             }
             MethodSection(state.method, onIntent)
@@ -245,6 +246,25 @@ private fun FuelTypeSelector(selected: FuelType, onIntent: (FuelCostIntent) -> U
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text(stringResource(label), maxLines = 1) }
         }
+    }
+}
+
+/** 연비를 입력해야 저장할 수 있으므로 그 전에는 표시하지 않는다. */
+@Composable
+private fun MyCarRow(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit) {
+    if (state.currentCar == null) return
+    val saved = state.isCurrentCarSaved
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = stringResource(if (saved) R.string.my_car_saved else R.string.my_car_save_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(
+            onClick = { onIntent(if (saved) FuelCostIntent.ClearMyCar else FuelCostIntent.SaveMyCar) },
+            modifier = Modifier.heightIn(min = 48.dp),
+        ) { Text(stringResource(if (saved) R.string.action_clear_my_car else R.string.action_save_my_car)) }
     }
 }
 

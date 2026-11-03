@@ -2,6 +2,7 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 
 import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
+import com.jskim.sharingfuelcost.domain.fuel.MyCar
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -107,7 +108,22 @@ data class FuelCostUiState(
     /** 검색 결과를 고르면 지도를 이 위치로 옮긴다. */
     val mapCameraTarget: GeoPoint? = null,
     val result: SettlementResult? = null,
+    val savedCar: MyCar? = null,
 ) {
+    /** 지금 입력한 차. 연비가 유효할 때만 내 차로 저장할 수 있다. */
+    val currentCar: MyCar?
+        get() = kmPerLiter.toPositiveDecimalOrNull()?.let { MyCar(selectedVehicle, it, fuelType) }
+
+    /** 12.5와 12.50처럼 표기만 다른 연비는 같은 차로 본다. */
+    val isCurrentCarSaved: Boolean
+        get() {
+            val current = currentCar ?: return false
+            val saved = savedCar ?: return false
+            return current.vehicle == saved.vehicle &&
+                current.fuelType == saved.fuelType &&
+                current.kmPerLiter.compareTo(saved.kmPerLiter) == 0
+        }
+
     val kmPerLiterInvalid: Boolean get() = isInvalidPositive(kmPerLiter)
     val wonPerLiterInvalid: Boolean get() = isInvalidPositive(wonPerLiter)
     val totalDistanceInvalid: Boolean get() = isInvalidPositive(totalDistanceKm)
@@ -170,6 +186,8 @@ sealed interface FuelCostIntent {
     data class MapPlaceSelected(val place: Place) : FuelCostIntent
     data class FuelTypeSelected(val type: FuelType) : FuelCostIntent
     data object ApplyAverageFuelPrice : FuelCostIntent
+    data object SaveMyCar : FuelCostIntent
+    data object ClearMyCar : FuelCostIntent
     data object MapPickConfirmed : FuelCostIntent
     /** 위치 권한을 받은 뒤 보낸다. */
     data object UseCurrentLocation : FuelCostIntent

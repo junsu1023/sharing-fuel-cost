@@ -3,6 +3,8 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
+import com.jskim.sharingfuelcost.domain.fuel.MyCar
+import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
@@ -73,8 +75,18 @@ class FuelCostViewModelTest {
             object : VehicleRepository {
                 override suspend fun search(modelName: String) = vehicleResult.also { vehicleCalls++ }
             },
+            object : MyCarRepository {
+                override suspend fun load() = storedCar
+                override suspend fun save(car: MyCar) {
+                    storedCar = car
+                }
+                override suspend fun clear() {
+                    storedCar = null
+                }
+            },
         )
     }
+    private var storedCar: MyCar? = null
     private val state get() = viewModel.uiState.value
 
     @Before
@@ -606,6 +618,53 @@ class FuelCostViewModelTest {
         enterAddress(LocationField.RiderPickup(id), "수원역")
         assertEquals("수원역", state.riders.single().pickup)
         assertEquals(FuelCostScreen.Input, state.screen)
+    }
+
+    @Test
+    fun `saved car fills vehicle fuel economy and fuel type on start`() {
+        storedCar = MyCar(diesel, diesel.kmPerLiter, FuelType.DIESEL)
+        assertEquals(diesel, state.selectedVehicle)
+        assertEquals("14.3", state.kmPerLiter)
+        assertEquals(FuelType.DIESEL, state.fuelType)
+        assertTrue(state.isCurrentCarSaved)
+    }
+
+    @Test
+    fun `no saved car leaves fuel economy empty and nothing to save`() {
+        assertEquals("", state.kmPerLiter)
+        assertNull(state.currentCar)
+        assertFalse(state.isCurrentCarSaved)
+    }
+
+    @Test
+    fun `saving typed fuel economy stores it and marks current car as saved`() {
+        viewModel.onIntent(FuelCostIntent.FuelTypeSelected(FuelType.LPG))
+        viewModel.onIntent(FuelCostIntent.KmPerLiterChanged("9.80"))
+        assertFalse(state.isCurrentCarSaved)
+
+        viewModel.onIntent(FuelCostIntent.SaveMyCar)
+        assertEquals(MyCar(null, "9.80".toBigDecimal(), FuelType.LPG), storedCar)
+        assertTrue(state.isCurrentCarSaved)
+
+        viewModel.onIntent(FuelCostIntent.KmPerLiterChanged("10"))
+        assertFalse(state.isCurrentCarSaved)
+    }
+
+    @Test
+    fun `saved car with equal fuel economy in different notation counts as saved`() {
+        storedCar = MyCar(null, "12.5".toBigDecimal(), FuelType.GASOLINE)
+        viewModel.onIntent(FuelCostIntent.KmPerLiterChanged("12.50"))
+        assertTrue(state.isCurrentCarSaved)
+    }
+
+    @Test
+    fun `clearing my car removes it but keeps current input`() {
+        storedCar = MyCar(diesel, diesel.kmPerLiter, FuelType.DIESEL)
+        viewModel.onIntent(FuelCostIntent.ClearMyCar)
+        assertNull(storedCar)
+        assertNull(state.savedCar)
+        assertEquals("14.3", state.kmPerLiter)
+        assertFalse(state.isCurrentCarSaved)
     }
 
     @Test
