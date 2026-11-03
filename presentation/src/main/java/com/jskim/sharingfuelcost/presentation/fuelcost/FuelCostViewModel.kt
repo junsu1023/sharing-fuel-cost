@@ -137,6 +137,7 @@ class FuelCostViewModel @Inject constructor(
             addressSearch = AddressSearchState.Idle,
         )
         FuelCostIntent.LocationPermissionDenied -> state.copy(currentLocation = CurrentLocationState.PermissionDenied)
+        FuelCostIntent.LocationPermissionBlocked -> state.copy(currentLocation = CurrentLocationState.PermissionBlocked)
         FuelCostIntent.Calculate -> state.calculate()
         else -> state
     }

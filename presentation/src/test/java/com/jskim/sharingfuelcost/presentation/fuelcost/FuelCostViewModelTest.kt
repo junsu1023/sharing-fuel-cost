@@ -493,6 +493,15 @@ class FuelCostViewModelTest {
     }
 
     @Test
+    fun `blocked permission is shown and granting later fills origin`() {
+        viewModel.onIntent(FuelCostIntent.LocationPermissionBlocked)
+        assertEquals(CurrentLocationState.PermissionBlocked, state.currentLocation)
+        viewModel.onIntent(FuelCostIntent.UseCurrentLocation)
+        assertEquals(CurrentLocationState.Success, state.currentLocation)
+        assertEquals(point, state.originPoint)
+    }
+
+    @Test
     fun `riders are limited to five`() {
         repeat(6) { viewModel.onIntent(FuelCostIntent.AddRider) }
         assertEquals(MAX_RIDERS, state.riders.size)
