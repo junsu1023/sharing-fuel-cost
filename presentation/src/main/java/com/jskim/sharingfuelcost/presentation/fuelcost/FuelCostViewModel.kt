@@ -3,8 +3,12 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
+import com.jskim.sharingfuelcost.domain.fuel.MyCar
+import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
+import com.jskim.sharingfuelcost.domain.history.SettlementHistoryRepository
+import com.jskim.sharingfuelcost.domain.history.SettlementRecord
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -42,6 +46,8 @@ class FuelCostViewModel @Inject constructor(
     private val currentLocationRepository: CurrentLocationRepository,
     private val fuelPriceRepository: FuelPriceRepository,
     private val vehicleRepository: VehicleRepository,
+    private val myCarRepository: MyCarRepository,
+    private val historyRepository: SettlementHistoryRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FuelCostUiState())
@@ -65,6 +71,17 @@ class FuelCostViewModel @Inject constructor(
                     is LookupResult.Success ->
                         state.copy(fuelPrice = FuelPriceState.Loaded(result.value)).withAveragePriceIfNotEdited()
                     is LookupResult.Failure -> state.copy(fuelPrice = FuelPriceState.Failed(result.reason))
+                }
+            }
+        }
+        viewModelScope.launch {
+            val car = myCarRepository.load() ?: return@launch
+            _uiState.update { state ->
+                // 불러오기 전에 사용자가 연비를 입력했으면 덮어쓰지 않는다.
+                if (state.kmPerLiter.isNotEmpty() || state.selectedVehicle != null) {
+                    state.copy(savedCar = car)
+                } else {
+                    state.withCar(car).copy(savedCar = car)
                 }
             }
         }
@@ -96,11 +113,45 @@ class FuelCostViewModel @Inject constructor(
             is FuelCostIntent.MapCameraIdle -> resolveMapPoint(intent.point)
             FuelCostIntent.MapPickConfirmed -> confirmMapPick()
             FuelCostIntent.UseCurrentLocation -> useCurrentLocation()
+            FuelCostIntent.SaveMyCar -> {
+                val car = _uiState.value.currentCar ?: return
+                _uiState.update { it.copy(savedCar = car) }
+                viewModelScope.launch { myCarRepository.save(car) }
+            }
+            FuelCostIntent.ClearMyCar -> {
+                _uiState.update { it.copy(savedCar = null) }
+                viewModelScope.launch { myCarRepository.clear() }
+            }
+            FuelCostIntent.Calculate -> {
+                _uiState.update { reduce(it, intent) }
+                saveRecord()
+            }
+            FuelCostIntent.OpenHistory -> {
+                _uiState.update { it.copy(screen = FuelCostScreen.History) }
+                loadHistory()
+            }
+            is FuelCostIntent.DeleteRecord -> {
+                _uiState.update { state ->
+                    state.copy(
+                        screen = FuelCostScreen.History,
+                        history = state.history?.filterNot { it.createdAtMillis == intent.createdAtMillis },
+                    )
+                }
+                viewModelScope.launch { historyRepository.delete(intent.createdAtMillis) }
+            }
             FuelCostIntent.Back -> {
                 searchJob?.cancel()
                 mapJob?.cancel()
                 vehicleJob?.cancel()
-                _uiState.update { it.copy(screen = FuelCostScreen.Input) }
+                _uiState.update {
+                    it.copy(
+                        screen = if (it.screen is FuelCostScreen.HistoryDetail) {
+                            FuelCostScreen.History
+                        } else {
+                            FuelCostScreen.Input
+                        },
+                    )
+                }
             }
             else -> _uiState.update { reduce(it, intent) }
         }
@@ -122,6 +173,7 @@ class FuelCostViewModel @Inject constructor(
         is FuelCostIntent.FuelTypeSelected -> state.copy(fuelType = intent.type).withAveragePriceIfNotEdited()
         FuelCostIntent.ApplyAverageFuelPrice -> state.copy(wonPerLiterEdited = false).withAveragePriceIfNotEdited()
         is FuelCostIntent.MethodSelected -> state.copy(method = intent.method)
+        is FuelCostIntent.OpenRecord -> state.copy(screen = FuelCostScreen.HistoryDetail(intent.createdAtMillis))
         is FuelCostIntent.TotalDistanceChanged ->
             state.copy(totalDistanceKm = intent.value.decimalOnly()).manualDistance()
         is FuelCostIntent.OpenAddressSearch -> state.copy(
@@ -259,14 +311,15 @@ class FuelCostViewModel @Inject constructor(
     private fun selectVehicle(vehicle: VehicleFuelEconomy) {
         vehicleJob?.cancel()
         _uiState.update { state ->
-            state.copy(
-                screen = FuelCostScreen.Input,
-                selectedVehicle = vehicle,
-                kmPerLiter = vehicle.kmPerLiter.toPlainString(),
-                fuelType = vehicle.fuelType,
-            ).withAveragePriceIfNotEdited()
+            state.withCar(MyCar(vehicle, vehicle.kmPerLiter, vehicle.fuelType)).copy(screen = FuelCostScreen.Input)
         }
     }
+
+    private fun FuelCostUiState.withCar(car: MyCar) = copy(
+        selectedVehicle = car.vehicle,
+        kmPerLiter = car.kmPerLiter.toPlainString(),
+        fuelType = car.fuelType,
+    ).withAveragePriceIfNotEdited()
 
     private fun selectMapPlace(place: Place) {
         searchJob?.cancel()
@@ -400,6 +453,28 @@ class FuelCostViewModel @Inject constructor(
         return when (val outcome = calculator(input)) {
             is SettlementOutcome.Success -> copy(screen = FuelCostScreen.Result, result = outcome.result)
             is SettlementOutcome.Failure -> this
+        }
+    }
+
+    /** 결과 화면으로 넘어갔을 때만 저장한다. 직전 기록과 같은 계산은 저장소가 거른다. */
+    private fun saveRecord() {
+        val state = _uiState.value
+        val result = state.result
+        if (state.screen != FuelCostScreen.Result || result == null) return
+        val record = SettlementRecord(
+            createdAtMillis = System.currentTimeMillis(),
+            places = state.routePlaces,
+            kmPerLiter = state.kmPerLiter.toBigDecimal(),
+            wonPerLiter = state.wonPerLiter.toBigDecimal(),
+            result = result,
+        )
+        viewModelScope.launch { historyRepository.add(record) }
+    }
+
+    private fun loadHistory() {
+        viewModelScope.launch {
+            val records = historyRepository.records()
+            _uiState.update { it.copy(history = records) }
         }
     }
 

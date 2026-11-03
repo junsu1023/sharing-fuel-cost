@@ -2,12 +2,16 @@ package com.jskim.sharingfuelcost.di
 
 import android.content.Context
 import com.jskim.sharingfuelcost.BuildConfig
+import com.jskim.sharingfuelcost.data.history.SharedPreferencesSettlementHistoryRepository
 import com.jskim.sharingfuelcost.data.kakao.KakaoDataSource
 import com.jskim.sharingfuelcost.data.location.AndroidCurrentLocationRepository
 import com.jskim.sharingfuelcost.data.opinet.OpinetDataSource
+import com.jskim.sharingfuelcost.data.vehicle.SharedPreferencesMyCarRepository
 import com.jskim.sharingfuelcost.data.vehicle.VehicleDataSource
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
+import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
+import com.jskim.sharingfuelcost.domain.history.SettlementHistoryRepository
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.PlaceSearchRepository
 import com.jskim.sharingfuelcost.domain.route.RouteDistanceRepository
@@ -48,6 +52,16 @@ object AppModule {
     @Singleton
     fun provideVehicleRepository(): VehicleRepository =
         VehicleDataSource(BuildConfig.DATA_GO_KR_API_KEY).vehicleRepository
+
+    @Provides
+    @Singleton
+    fun provideMyCarRepository(@ApplicationContext context: Context): MyCarRepository =
+        SharedPreferencesMyCarRepository(context)
+
+    @Provides
+    @Singleton
+    fun provideSettlementHistoryRepository(@ApplicationContext context: Context): SettlementHistoryRepository =
+        SharedPreferencesSettlementHistoryRepository(context)
 
     @Provides
     fun provideSettlementCalculator(): SettlementCalculator = SettlementCalculator()

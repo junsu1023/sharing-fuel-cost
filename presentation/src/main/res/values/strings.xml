@@ -58,6 +58,15 @@
     <string name="action_copy">복사</string>
     <string name="action_share">공유</string>
     <string name="action_apply_average_price">평균가 적용</string>
+    <string name="my_car_save_hint">다음에 열면 이 차로 바로 채워요</string>
+    <string name="my_car_saved">내 차로 저장됨</string>
+    <string name="action_save_my_car">내 차로 저장</string>
+    <string name="action_clear_my_car">저장 삭제</string>
+    <string name="history_title">정산 기록</string>
+    <string name="history_empty">아직 정산 기록이 없어요. 계산하면 자동으로 저장돼요.</string>
+    <string name="history_limit">최근 %1$d건까지 보관해요</string>
+    <string name="cd_open_history">정산 기록</string>
+    <string name="cd_delete_record">이 기록 삭제</string>
     <string name="action_use_current_location">현재 위치 사용</string>
     <string name="action_use_this_location">이 위치 사용</string>
     <string name="action_use_address">입력한 내용 그대로 사용</string>
