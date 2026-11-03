@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
@@ -13,6 +15,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.app.ActivityCompat
@@ -28,6 +33,9 @@ private val LOCATION_PERMISSIONS = arrayOf(
     Manifest.permission.ACCESS_COARSE_LOCATION,
     Manifest.permission.ACCESS_FINE_LOCATION,
 )
+
+/** 이 시간 안에 뒤로가기를 다시 누르면 종료한다. */
+private const val EXIT_BACK_INTERVAL_MILLIS = 2_000L
 
 /** 출발지를 모를 때 지도에 처음 보여 줄 위치(서울시청) */
 private val DEFAULT_MAP_POINT = GeoPoint(longitude = 126.9784, latitude = 37.5665)
@@ -95,6 +103,19 @@ fun FuelCostRoute(viewModel: FuelCostViewModel = hiltViewModel()) {
     }
 
     BackHandler(enabled = state.screen != FuelCostScreen.Input, onBack = onBack)
+
+    // 입력 화면에서는 뒤로가기를 한 번 더 눌러야 종료해 실수로 입력을 잃지 않게 한다.
+    var lastBackMillis by remember { mutableLongStateOf(0L) }
+    val exitMessage = stringResource(R.string.back_again_to_exit)
+    BackHandler(enabled = state.screen == FuelCostScreen.Input) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastBackMillis < EXIT_BACK_INTERVAL_MILLIS) {
+            activity?.finish()
+        } else {
+            lastBackMillis = now
+            Toast.makeText(context, exitMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     when (val screen = state.screen) {
         FuelCostScreen.Input -> InputScreen(
