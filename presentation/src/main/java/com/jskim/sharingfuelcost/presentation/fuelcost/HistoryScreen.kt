@@ -70,7 +70,20 @@ private fun RecordRow(record: SettlementRecord, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(formatRoute(record.places), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = formatRoute(listOf(record.places.first(), record.places.last())),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                val riders = record.riderNames
+                Text(
+                    text = if (riders.isEmpty()) {
+                        stringResource(R.string.history_no_riders)
+                    } else {
+                        stringResource(R.string.history_riders, riders.joinToString(", "))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Text(
                 text = stringResource(R.string.amount_won, formatWon(record.result.totalCostWon)),

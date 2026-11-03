@@ -24,6 +24,11 @@ class SettlementHistoryTest {
     )
 
     @Test
+    fun `rider names exclude driver without name`() {
+        assertEquals(listOf("민지"), record(1).riderNames)
+    }
+
+    @Test
     fun `new record goes first`() {
         val older = record(1, totalCostWon = 10_000)
         val newer = record(2)
