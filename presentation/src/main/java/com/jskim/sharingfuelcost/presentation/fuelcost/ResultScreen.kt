@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -85,7 +86,10 @@ internal fun ResultScreen(
                 tonalLabel = stringResource(R.string.action_copy),
                 onTonal = {
                     copyToClipboard(context, shareText)
-                    scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+                    // Android 13부터는 시스템이 복사 확인을 띄우므로 겹치지 않게 12L 이하에서만 알린다.
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+                        scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+                    }
                 },
                 filledLabel = stringResource(R.string.action_share),
                 onFilled = { share(context, shareText) },

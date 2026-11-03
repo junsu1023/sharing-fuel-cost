@@ -14,6 +14,9 @@ data class SettlementRecord(
     val wonPerLiter: BigDecimal,
     val result: SettlementResult,
 ) {
+    /** 운전자는 이름이 없으므로 탑승자 이름만 경유 순서대로 남는다. */
+    val riderNames: List<String> get() = result.shares.mapNotNull { it.name }
+
     fun hasSameContent(other: SettlementRecord): Boolean =
         places == other.places &&
             kmPerLiter.compareTo(other.kmPerLiter) == 0 &&
