@@ -7,6 +7,9 @@ import com.jskim.sharingfuelcost.domain.fuel.MyCar
 import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
+import com.jskim.sharingfuelcost.domain.history.SettlementHistoryRepository
+import com.jskim.sharingfuelcost.domain.history.SettlementRecord
+import com.jskim.sharingfuelcost.domain.history.addSettlementRecord
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -84,8 +87,18 @@ class FuelCostViewModelTest {
                     storedCar = null
                 }
             },
+            object : SettlementHistoryRepository {
+                override suspend fun records() = storedRecords
+                override suspend fun add(record: SettlementRecord) {
+                    storedRecords = addSettlementRecord(storedRecords, record)
+                }
+                override suspend fun delete(createdAtMillis: Long) {
+                    storedRecords = storedRecords.filterNot { it.createdAtMillis == createdAtMillis }
+                }
+            },
         )
     }
+    private var storedRecords: List<SettlementRecord> = emptyList()
     private var storedCar: MyCar? = null
     private val state get() = viewModel.uiState.value
 
@@ -500,8 +513,8 @@ class FuelCostViewModelTest {
             destination = "속초",
             riders = listOf(RiderInput(0, pickup = "평택역"), RiderInput(1, pickup = "의왕역")),
         )
-        assertEquals("성균관대역 → 평택역 → 의왕역 → 속초", formatRoute(state))
-        assertEquals("성균관대역 → 속초", formatRoute(state.copy(riders = emptyList())))
+        assertEquals("성균관대역 → 평택역 → 의왕역 → 속초", formatRoute(state.routePlaces))
+        assertEquals("성균관대역 → 속초", formatRoute(state.copy(riders = emptyList()).routePlaces))
     }
 
     @Test
@@ -539,6 +552,73 @@ class FuelCostViewModelTest {
         assertFalse(state.canCalculate)
         viewModel.onIntent(FuelCostIntent.Calculate)
         assertEquals(FuelCostScreen.Input, state.screen)
+        assertTrue(storedRecords.isEmpty())
+    }
+
+    @Test
+    fun `showing result saves a record with route inputs and result`() {
+        fillValidInput()
+        addRider("민지", "사당역", "240")
+        viewModel.onIntent(FuelCostIntent.Calculate)
+
+        val record = storedRecords.single()
+        assertEquals(listOf("강남역", "사당역", "속초해수욕장"), record.places)
+        assertEquals("12.5".toBigDecimal(), record.kmPerLiter)
+        assertEquals("1650".toBigDecimal(), record.wonPerLiter)
+        assertEquals(state.result, record.result)
+    }
+
+    @Test
+    fun `showing the same result again does not add a duplicate record`() {
+        fillValidInput()
+        viewModel.onIntent(FuelCostIntent.Calculate)
+        viewModel.onIntent(FuelCostIntent.Back)
+        viewModel.onIntent(FuelCostIntent.Calculate)
+        assertEquals(1, storedRecords.size)
+
+        viewModel.onIntent(FuelCostIntent.Back)
+        viewModel.onIntent(FuelCostIntent.WonPerLiterChanged("1700"))
+        viewModel.onIntent(FuelCostIntent.Calculate)
+        assertEquals(2, storedRecords.size)
+    }
+
+    @Test
+    fun `history opens saved records and back returns from detail to list then input`() {
+        fillValidInput()
+        viewModel.onIntent(FuelCostIntent.Calculate)
+        viewModel.onIntent(FuelCostIntent.Back)
+
+        viewModel.onIntent(FuelCostIntent.OpenHistory)
+        assertEquals(FuelCostScreen.History, state.screen)
+        val record = state.history!!.single()
+
+        viewModel.onIntent(FuelCostIntent.OpenRecord(record.createdAtMillis))
+        assertEquals(FuelCostScreen.HistoryDetail(record.createdAtMillis), state.screen)
+        viewModel.onIntent(FuelCostIntent.Back)
+        assertEquals(FuelCostScreen.History, state.screen)
+        viewModel.onIntent(FuelCostIntent.Back)
+        assertEquals(FuelCostScreen.Input, state.screen)
+        assertEquals("12.5", state.kmPerLiter)
+    }
+
+    @Test
+    fun `deleting a record removes it from list and storage`() {
+        fillValidInput()
+        viewModel.onIntent(FuelCostIntent.Calculate)
+        viewModel.onIntent(FuelCostIntent.Back)
+        viewModel.onIntent(FuelCostIntent.OpenHistory)
+        val record = state.history!!.single()
+        viewModel.onIntent(FuelCostIntent.OpenRecord(record.createdAtMillis))
+
+        viewModel.onIntent(FuelCostIntent.DeleteRecord(record.createdAtMillis))
+        assertEquals(FuelCostScreen.History, state.screen)
+        assertEquals(emptyList<SettlementRecord>(), state.history)
+        assertTrue(storedRecords.isEmpty())
+    }
+
+    @Test
+    fun `record time is shown in device time zone`() {
+        assertEquals("2025.11.03 20:40", formatRecordTime(1_762_170_000_000, java.time.ZoneId.of("Asia/Seoul")))
     }
 
     @Test

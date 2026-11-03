@@ -50,7 +50,16 @@ internal fun InputScreen(
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.input_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.input_title)) },
+                actions = {
+                    IconButton(onClick = { onIntent(FuelCostIntent.OpenHistory) }) {
+                        Icon(painterResource(R.drawable.ic_history), stringResource(R.string.cd_open_history))
+                    }
+                },
+            )
+        },
         bottomBar = {
             Column(modifier = Modifier.imePadding()) {
                 BottomActions(

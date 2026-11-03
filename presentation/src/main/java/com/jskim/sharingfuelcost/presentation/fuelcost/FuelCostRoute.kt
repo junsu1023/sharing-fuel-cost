@@ -88,7 +88,27 @@ fun FuelCostRoute(viewModel: FuelCostViewModel = hiltViewModel()) {
                 }
             },
         )
-        FuelCostScreen.Result -> state.result?.let { ResultScreen(state, it, onBack) }
+        FuelCostScreen.Result -> state.result?.let {
+            ResultScreen(state.routePlaces, state.kmPerLiter, state.wonPerLiter, it, onBack)
+        }
+        FuelCostScreen.History -> HistoryScreen(
+            records = state.history,
+            onOpen = { onIntent(FuelCostIntent.OpenRecord(it.createdAtMillis)) },
+            onBack = onBack,
+        )
+        is FuelCostScreen.HistoryDetail -> state.history
+            ?.firstOrNull { it.createdAtMillis == screen.createdAtMillis }
+            ?.let { record ->
+                ResultScreen(
+                    places = record.places,
+                    kmPerLiter = record.kmPerLiter.toPlainString(),
+                    wonPerLiter = record.wonPerLiter.toPlainString(),
+                    result = record.result,
+                    onBack = onBack,
+                    title = formatRecordTime(record.createdAtMillis),
+                    onDelete = { onIntent(FuelCostIntent.DeleteRecord(record.createdAtMillis)) },
+                )
+            }
         FuelCostScreen.VehicleSearch -> VehicleSearchScreen(
             query = state.vehicleQuery,
             search = state.vehicleSearch,

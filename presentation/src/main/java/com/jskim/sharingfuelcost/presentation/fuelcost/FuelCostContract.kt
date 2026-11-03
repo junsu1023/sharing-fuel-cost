@@ -4,6 +4,7 @@ import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.fuel.MyCar
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
+import com.jskim.sharingfuelcost.domain.history.SettlementRecord
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.Place
@@ -25,6 +26,8 @@ sealed interface FuelCostScreen {
     data class AddressSearch(val field: LocationField) : FuelCostScreen
     data class MapPicker(val field: LocationField) : FuelCostScreen
     data object VehicleSearch : FuelCostScreen
+    data object History : FuelCostScreen
+    data class HistoryDetail(val createdAtMillis: Long) : FuelCostScreen
 }
 
 data class RiderInput(
@@ -109,7 +112,12 @@ data class FuelCostUiState(
     val mapCameraTarget: GeoPoint? = null,
     val result: SettlementResult? = null,
     val savedCar: MyCar? = null,
+    /** 기록 화면을 열 때 읽는다. 읽기 전에는 null이다. */
+    val history: List<SettlementRecord>? = null,
 ) {
+    /** 출발지, 경유 순서대로의 탑승 위치, 목적지 */
+    val routePlaces: List<String> get() = listOf(origin) + riders.map { it.pickup } + destination
+
     /** 지금 입력한 차. 연비가 유효할 때만 내 차로 저장할 수 있다. */
     val currentCar: MyCar?
         get() = kmPerLiter.toPositiveDecimalOrNull()?.let { MyCar(selectedVehicle, it, fuelType) }
@@ -188,6 +196,9 @@ sealed interface FuelCostIntent {
     data object ApplyAverageFuelPrice : FuelCostIntent
     data object SaveMyCar : FuelCostIntent
     data object ClearMyCar : FuelCostIntent
+    data object OpenHistory : FuelCostIntent
+    data class OpenRecord(val createdAtMillis: Long) : FuelCostIntent
+    data class DeleteRecord(val createdAtMillis: Long) : FuelCostIntent
     data object MapPickConfirmed : FuelCostIntent
     /** 위치 권한을 받은 뒤 보낸다. */
     data object UseCurrentLocation : FuelCostIntent

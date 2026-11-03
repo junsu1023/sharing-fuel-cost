@@ -7,6 +7,8 @@ import com.jskim.sharingfuelcost.domain.fuel.MyCar
 import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
+import com.jskim.sharingfuelcost.domain.history.SettlementHistoryRepository
+import com.jskim.sharingfuelcost.domain.history.SettlementRecord
 import com.jskim.sharingfuelcost.domain.route.CurrentLocationRepository
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -45,6 +47,7 @@ class FuelCostViewModel @Inject constructor(
     private val fuelPriceRepository: FuelPriceRepository,
     private val vehicleRepository: VehicleRepository,
     private val myCarRepository: MyCarRepository,
+    private val historyRepository: SettlementHistoryRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FuelCostUiState())
@@ -119,11 +122,36 @@ class FuelCostViewModel @Inject constructor(
                 _uiState.update { it.copy(savedCar = null) }
                 viewModelScope.launch { myCarRepository.clear() }
             }
+            FuelCostIntent.Calculate -> {
+                _uiState.update { it.calculate() }
+                saveRecord()
+            }
+            FuelCostIntent.OpenHistory -> {
+                _uiState.update { it.copy(screen = FuelCostScreen.History) }
+                loadHistory()
+            }
+            is FuelCostIntent.DeleteRecord -> {
+                _uiState.update { state ->
+                    state.copy(
+                        screen = FuelCostScreen.History,
+                        history = state.history?.filterNot { it.createdAtMillis == intent.createdAtMillis },
+                    )
+                }
+                viewModelScope.launch { historyRepository.delete(intent.createdAtMillis) }
+            }
             FuelCostIntent.Back -> {
                 searchJob?.cancel()
                 mapJob?.cancel()
                 vehicleJob?.cancel()
-                _uiState.update { it.copy(screen = FuelCostScreen.Input) }
+                _uiState.update {
+                    it.copy(
+                        screen = if (it.screen is FuelCostScreen.HistoryDetail) {
+                            FuelCostScreen.History
+                        } else {
+                            FuelCostScreen.Input
+                        },
+                    )
+                }
             }
             else -> _uiState.update { reduce(it, intent) }
         }
@@ -160,7 +188,7 @@ class FuelCostViewModel @Inject constructor(
             addressSearch = AddressSearchState.Idle,
         )
         FuelCostIntent.LocationPermissionDenied -> state.copy(currentLocation = CurrentLocationState.PermissionDenied)
-        FuelCostIntent.Calculate -> state.calculate()
+        is FuelCostIntent.OpenRecord -> state.copy(screen = FuelCostScreen.HistoryDetail(intent.createdAtMillis))
         else -> state
     }
 
@@ -424,6 +452,28 @@ class FuelCostViewModel @Inject constructor(
         return when (val outcome = calculator(input)) {
             is SettlementOutcome.Success -> copy(screen = FuelCostScreen.Result, result = outcome.result)
             is SettlementOutcome.Failure -> this
+        }
+    }
+
+    /** 결과 화면으로 넘어갔을 때만 저장한다. 직전 기록과 같은 계산은 저장소가 거른다. */
+    private fun saveRecord() {
+        val state = _uiState.value
+        val result = state.result
+        if (state.screen != FuelCostScreen.Result || result == null) return
+        val record = SettlementRecord(
+            createdAtMillis = System.currentTimeMillis(),
+            places = state.routePlaces,
+            kmPerLiter = state.kmPerLiter.toBigDecimal(),
+            wonPerLiter = state.wonPerLiter.toBigDecimal(),
+            result = result,
+        )
+        viewModelScope.launch { historyRepository.add(record) }
+    }
+
+    private fun loadHistory() {
+        viewModelScope.launch {
+            val records = historyRepository.records()
+            _uiState.update { it.copy(history = records) }
         }
     }
 

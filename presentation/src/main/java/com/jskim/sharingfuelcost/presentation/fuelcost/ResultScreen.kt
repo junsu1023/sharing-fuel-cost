@@ -44,23 +44,38 @@ import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ResultScreen(state: FuelCostUiState, result: SettlementResult, onBack: () -> Unit) {
+internal fun ResultScreen(
+    places: List<String>,
+    kmPerLiter: String,
+    wonPerLiter: String,
+    result: SettlementResult,
+    onBack: () -> Unit,
+    title: String = stringResource(R.string.result_title),
+    onDelete: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val copiedMessage = stringResource(R.string.copied)
     val methodName = stringResource(result.method.labelRes())
-    val shareText = buildShareText(context, state, result, methodName)
+    val shareText = buildShareText(context, places, result, methodName)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.result_title)) },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.cd_back))
+                    }
+                },
+                actions = {
+                    if (onDelete != null) {
+                        IconButton(onClick = onDelete) {
+                            Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.cd_delete_record))
+                        }
                     }
                 },
             )
@@ -87,7 +102,7 @@ internal fun ResultScreen(state: FuelCostUiState, result: SettlementResult, onBa
             FuelSection(title = null) {
                 Column {
                     Text(
-                        text = formatRoute(state),
+                        text = formatRoute(places),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -120,8 +135,8 @@ internal fun ResultScreen(state: FuelCostUiState, result: SettlementResult, onBa
                         text = stringResource(
                             R.string.result_formula,
                             formatKm(result.totalDistanceMeters),
-                            state.kmPerLiter,
-                            state.wonPerLiter,
+                            kmPerLiter,
+                            wonPerLiter,
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -186,11 +201,11 @@ private fun SettlementMethod.headingRes(): Int = when (this) {
 
 private fun buildShareText(
     context: Context,
-    state: FuelCostUiState,
+    places: List<String>,
     result: SettlementResult,
     methodName: String,
 ): String = buildList {
-    add(formatRoute(state))
+    add(formatRoute(places))
     add(context.getString(R.string.share_total_distance, formatKm(result.totalDistanceMeters)))
     add(context.getString(R.string.share_fuel_used, formatLiters(result.fuelLiters)))
     add(context.getString(R.string.share_total_cost, formatWon(result.totalCostWon)))
@@ -220,12 +235,9 @@ private fun share(context: Context, text: String) {
 private fun ResultScreenPreview() {
     SharingFuelCostTheme {
         ResultScreen(
-            state = FuelCostUiState(
-                origin = "강남역 2번 출구",
-                destination = "속초해수욕장",
-                kmPerLiter = "12.5",
-                wonPerLiter = "1650",
-            ),
+            places = listOf("강남역 2번 출구", "사당역", "수원역", "속초해수욕장"),
+            kmPerLiter = "12.5",
+            wonPerLiter = "1650",
             result = SettlementResult(
                 totalDistanceMeters = 250_000,
                 fuelLiters = BigDecimal("20"),
