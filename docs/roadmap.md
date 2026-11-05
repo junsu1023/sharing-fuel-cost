@@ -38,7 +38,6 @@
 - 업로드 키를 만들고 `local.properties`에 `release_store_file`, `release_store_password`, `release_key_alias`, `release_key_password`를 넣는다. 키스토어는 저장소 밖에 두고 따로 백업한다.
 - 릴리스(또는 Play 앱 서명) 키 해시를 카카오 콘솔에 등록한다. (`docs/kakao-mobility.md` 6번)
 - 출시할 때마다 `app/build/outputs/mapping/release/mapping.txt`를 보관한다. 난독화된 오류 기록을 원래 코드로 되돌릴 때 필요하다.
-- 시스템 글꼴 대신 Noto Sans KR을 넣을지 결정한다.
 
 ## 현재 코드 상태
 

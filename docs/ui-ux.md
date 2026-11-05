@@ -36,7 +36,7 @@ MVP의 화면과 UI 상태를 정의한다. 화면 구성은 기획의 입력 �
 ### 형태와 글꼴
 
 - 모서리: extraSmall 6, small 10, medium 12, large 16, extraLarge 24 (dp)
-- 글꼴: 시안은 Noto Sans KR이다. 앱은 파일을 넣지 않고 시스템 기본 글꼴을 쓴다.
+- 글꼴: Noto Sans KR 가변 글꼴(`res/font/noto_sans_kr.ttf`)을 앱에 포함해 모든 텍스트 스타일에 쓴다. 두께는 400, 500, 700, 800을 등록한다. 라이선스(SIL OFL 1.1)는 `assets/licenses`에 함께 배포한다.
 - 구조: 카드 대신 `surface` 섹션을 전체 폭으로 쌓고 `background` 띠로 구분한다. 입력 섹션 제목은 문장형이다.
 - 입력: 투명 컨테이너와 하단 선만 있는 `TextField`
 - 버튼: 하단 고정 56dp, tonal과 filled를 1:1.6으로 배치. 정산 방식 버튼은 5:7로 나눈다.
