@@ -1,29 +1,21 @@
 package com.jskim.sharingfuelcost.data.opinet
 
 import android.content.Context
+import com.jskim.sharingfuelcost.data.relay.RelayClient
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
-import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.create
 import java.time.LocalDate
 
 private val json = Json { ignoreUnknownKeys = true }
 
-/** 오피넷 평균 유가 구현을 만든다. 키가 비어 있으면 저장값이 없을 때 NOT_CONFIGURED로 실패한다. */
-class OpinetDataSource(context: Context, certKey: String) {
-
-    private val service: OpinetService = Retrofit.Builder()
-        .baseUrl("https://www.opinet.co.kr/")
-        .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-        .build()
-        .create()
+/** 오피넷 평균 유가 구현을 만든다. 키는 중계 서버가 붙이고, 중계 주소가 없으면 저장값이 없을 때 NOT_CONFIGURED로 실패한다. */
+class OpinetDataSource(context: Context, relay: RelayClient) {
 
     val fuelPriceRepository: FuelPriceRepository = OpinetFuelPriceRepository(
-        service = service,
+        service = relay.retrofit("opinet").create(),
         cache = SharedPreferencesFuelPriceCache(context),
-        certKey = certKey,
+        isConfigured = relay.isConfigured,
         today = { LocalDate.now().toString() },
     )
 }

@@ -35,16 +35,16 @@ class OpinetFuelPriceRepositoryTest {
 
     private var calls = 0
 
-    private fun repository(cache: FakeCache, key: String = "key", answer: () -> OpinetResponse = { sample }) =
+    private fun repository(cache: FakeCache, configured: Boolean = true, answer: () -> OpinetResponse = { sample }) =
         OpinetFuelPriceRepository(
             service = object : OpinetService {
-                override suspend fun averagePrices(certKey: String, out: String): OpinetResponse {
+                override suspend fun averagePrices(out: String): OpinetResponse {
                     calls++
                     return answer()
                 }
             },
             cache = cache,
-            certKey = key,
+            isConfigured = configured,
             today = { "2026-11-02" },
         )
 
@@ -89,8 +89,8 @@ class OpinetFuelPriceRepositoryTest {
     }
 
     @Test
-    fun `missing key does not call api`() {
-        val result = runBlocking { repository(FakeCache(), key = "").averagePrices() }
+    fun `unconfigured relay does not call api`() {
+        val result = runBlocking { repository(FakeCache(), configured = false).averagePrices() }
         assertEquals(LookupResult.Failure(LookupFailure.NOT_CONFIGURED), result)
         assertEquals(0, calls)
     }

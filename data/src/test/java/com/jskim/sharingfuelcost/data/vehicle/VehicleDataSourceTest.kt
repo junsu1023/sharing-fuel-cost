@@ -85,10 +85,9 @@ class VehicleDataSourceTest {
     }
 
     @Test
-    fun `missing key does not call api and network error is reported`() {
+    fun `unconfigured relay does not call api and network error is reported`() {
         val service = object : VehicleService {
             override suspend fun search(
-                serviceKey: String,
                 modelName: String,
                 pageNo: Int,
                 numOfRows: Int,
@@ -98,11 +97,11 @@ class VehicleDataSourceTest {
         runBlocking {
             assertEquals(
                 LookupResult.Failure(LookupFailure.NOT_CONFIGURED),
-                DataGoKrVehicleRepository(service, "").search("아반떼"),
+                DataGoKrVehicleRepository(service, isConfigured = false).search("아반떼"),
             )
             assertEquals(
                 LookupResult.Failure(LookupFailure.NETWORK),
-                DataGoKrVehicleRepository(service, "key").search("아반떼"),
+                DataGoKrVehicleRepository(service, isConfigured = true).search("아반떼"),
             )
         }
     }

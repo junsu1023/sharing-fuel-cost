@@ -1,0 +1,5 @@
+node_modules/
+.wrangler/
+# 로컬 비밀값
+.dev.vars*
+.env*

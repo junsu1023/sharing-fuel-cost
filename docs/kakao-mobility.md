@@ -52,13 +52,13 @@
 
 2026-11-01 실제 호출 결과: 경유지 2개에 `sections` 3개, 구간 합과 `summary.distance` 일치(256,734m), 별도 제휴 승인 없이 HTTP 200. 자동차 길찾기의 구간 수는 이 호출로 확인했다.
 
-인증키는 `local.properties`의 `kakao_rest_api_key`, `kakao_native_app_key`에서 읽어 `BuildConfig`로 주입한다.
+REST API 키는 중계 서버 비밀값 `KAKAO_REST_API_KEY`에만 두고, 앱은 중계 서버의 `/kakao-navi/`, `/kakao-local/`을 호출한다. (`docs/relay.md`) 지도 SDK의 네이티브 앱 키만 `local.properties`의 `kakao_native_app_key`에서 읽어 `BuildConfig`로 주입한다.
 
 지도 SDK 참고: 공식 지원 ABI는 `armeabi-v7a`, `arm64-v8a`다. compileSdk 37로 빌드와 실행을 확인했다. Compose 전용 API는 없어 `AndroidView`로 감싸고, 화면을 떠날 때 `finish()`를 호출한다. 지도 우하단 로고는 가리면 안 된다.
 
 ## 사용자가 콘솔에서 설정할 항목
 
-[카카오디벨로퍼스](https://developers.kakao.com/)에서 설정한다. 키 값은 이 문서나 대화에 적지 않고 `local.properties`에만 넣는다.
+[카카오디벨로퍼스](https://developers.kakao.com/)에서 설정한다. 키 값은 이 문서나 대화에 적지 않는다. REST API 키는 중계 서버 비밀값에, 네이티브 앱 키는 `local.properties`에 넣는다.
 
 1. 앱을 생성한다. 무료 쿼터를 받으려면 계정에서 처음으로 카카오맵을 활성화하는 앱이어야 한다.
 2. 앱의 [제품 설정] > [카카오맵]에서 사용 설정을 켠다.

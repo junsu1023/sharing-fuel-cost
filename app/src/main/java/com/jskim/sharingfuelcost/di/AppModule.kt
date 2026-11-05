@@ -1,11 +1,14 @@
 package com.jskim.sharingfuelcost.di
 
 import android.content.Context
+import com.google.firebase.FirebaseApp
 import com.jskim.sharingfuelcost.BuildConfig
+import com.jskim.sharingfuelcost.currentAppCheckToken
 import com.jskim.sharingfuelcost.data.history.SharedPreferencesSettlementHistoryRepository
 import com.jskim.sharingfuelcost.data.kakao.KakaoDataSource
 import com.jskim.sharingfuelcost.data.location.AndroidCurrentLocationRepository
 import com.jskim.sharingfuelcost.data.opinet.OpinetDataSource
+import com.jskim.sharingfuelcost.data.relay.RelayClient
 import com.jskim.sharingfuelcost.data.vehicle.SharedPreferencesMyCarRepository
 import com.jskim.sharingfuelcost.data.vehicle.VehicleDataSource
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
@@ -27,9 +30,17 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    /** Firebase가 켜져 있을 때만 App Check 토큰을 붙인다. 없으면 중계 서버가 401로 거절한다. */
     @Provides
     @Singleton
-    fun provideKakaoDataSource(): KakaoDataSource = KakaoDataSource(BuildConfig.KAKAO_REST_API_KEY)
+    fun provideRelayClient(@ApplicationContext context: Context): RelayClient {
+        val firebaseReady = FirebaseApp.getApps(context).isNotEmpty()
+        return RelayClient(BuildConfig.RELAY_BASE_URL) { if (firebaseReady) currentAppCheckToken() else null }
+    }
+
+    @Provides
+    @Singleton
+    fun provideKakaoDataSource(relay: RelayClient): KakaoDataSource = KakaoDataSource(relay)
 
     @Provides
     fun provideRouteDistanceRepository(source: KakaoDataSource): RouteDistanceRepository =
@@ -45,13 +56,12 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFuelPriceRepository(@ApplicationContext context: Context): FuelPriceRepository =
-        OpinetDataSource(context, BuildConfig.OPINET_API_KEY).fuelPriceRepository
+    fun provideFuelPriceRepository(@ApplicationContext context: Context, relay: RelayClient): FuelPriceRepository =
+        OpinetDataSource(context, relay).fuelPriceRepository
 
     @Provides
     @Singleton
-    fun provideVehicleRepository(): VehicleRepository =
-        VehicleDataSource(BuildConfig.DATA_GO_KR_API_KEY).vehicleRepository
+    fun provideVehicleRepository(relay: RelayClient): VehicleRepository = VehicleDataSource(relay).vehicleRepository
 
     @Provides
     @Singleton

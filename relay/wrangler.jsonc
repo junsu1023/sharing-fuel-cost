@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sharing-fuel-cost-relay",
+  "main": "src/index.js",
+  // 고정한 wrangler 4.151.2가 지원하는 범위 안의 날짜(배포일)로 둔다.
+  "compatibility_date": "2026-10-19",
+  // 비밀값이 아닌 설정만 둔다. 키와 Firebase 프로젝트 번호는 `wrangler secret put`으로 넣는다.
+  "vars": {
+    // App Check 검증을 끄려면 "false". 운영에서는 항상 켠다.
+    "APP_CHECK_ENFORCED": "true"
+  }
+}

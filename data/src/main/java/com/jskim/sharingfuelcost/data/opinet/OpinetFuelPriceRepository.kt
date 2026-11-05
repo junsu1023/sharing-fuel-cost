@@ -27,11 +27,8 @@ internal data class OpinetOil(
 
 internal interface OpinetService {
     @GET("api/avgAllPrice.do")
-    suspend fun averagePrices(
-        // 공식 문서에는 certkey로 적혀 있지만 실제로는 code만 동작한다. (2026-11-01 호출로 확인)
-        @Query("code") certKey: String,
-        @Query("out") out: String = "json",
-    ): OpinetResponse
+    /** 인증키(code)는 중계 서버가 붙인다. */
+    suspend fun averagePrices(@Query("out") out: String = "json"): OpinetResponse
 }
 
 internal interface FuelPriceCache {
@@ -55,7 +52,7 @@ internal fun OpinetResponse.toAveragePrices(): List<AverageFuelPrice> = result.o
 internal class OpinetFuelPriceRepository(
     private val service: OpinetService,
     private val cache: FuelPriceCache,
-    private val certKey: String,
+    private val isConfigured: Boolean,
     private val today: () -> String,
 ) : FuelPriceRepository {
 
@@ -64,11 +61,11 @@ internal class OpinetFuelPriceRepository(
         val date = today()
         if (cache.fetchedDate == date && cached.isNotEmpty()) return LookupResult.Success(cached)
 
-        val fetched = if (certKey.isBlank()) {
+        val fetched = if (!isConfigured) {
             LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
         } else {
             safeLookup {
-                val response = service.averagePrices(certKey)
+                val response = service.averagePrices()
                 val prices = response.toAveragePrices()
                 if (prices.isEmpty()) {
                     LookupResult.Failure(LookupFailure.UNEXPECTED)

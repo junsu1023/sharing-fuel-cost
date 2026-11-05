@@ -1,6 +1,7 @@
 package com.jskim.sharingfuelcost.data.vehicle
 
 import com.jskim.sharingfuelcost.data.kakao.safeLookup
+import com.jskim.sharingfuelcost.data.relay.RelayClient
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
@@ -12,14 +13,10 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import okhttp3.MediaType.Companion.toMediaType
-import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.create
 import retrofit2.http.GET
 import retrofit2.http.Query
 import java.math.BigDecimal
-import java.net.URLDecoder
 
 private const val PAGE_SIZE = 100
 private const val RESULT_OK = "00"
@@ -29,7 +26,6 @@ private val NUMBER = Regex("""\d+(\.\d+)?""")
 internal interface VehicleService {
     @GET("B553530/CAREFF/CAREFF_LIST")
     suspend fun search(
-        @Query("serviceKey") serviceKey: String,
         @Query("q2") modelName: String,
         @Query("pageNo") pageNo: Int = 1,
         @Query("numOfRows") numOfRows: Int = PAGE_SIZE,
@@ -82,26 +78,20 @@ private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive
 
 internal class DataGoKrVehicleRepository(
     private val service: VehicleService,
-    private val serviceKey: String,
+    private val isConfigured: Boolean,
 ) : VehicleRepository {
 
     override suspend fun search(modelName: String): LookupResult<List<VehicleFuelEconomy>> {
-        if (serviceKey.isBlank()) return LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
-        return safeLookup { service.search(serviceKey, modelName).toVehicles() }
+        if (!isConfigured) return LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
+        return safeLookup { service.search(modelName).toVehicles() }
     }
 }
 
-/** 공공데이터포털 표시연비 구현을 만든다. 인코딩된 키를 넣어도 Retrofit이 다시 인코딩하지 않게 풀어서 쓴다. */
-class VehicleDataSource(serviceKey: String) {
-
-    private val decodedKey = if (serviceKey.contains('%')) URLDecoder.decode(serviceKey, "UTF-8") else serviceKey
+/** 공공데이터포털 표시연비 구현을 만든다. 서비스 키는 중계 서버가 붙인다. */
+class VehicleDataSource(relay: RelayClient) {
 
     val vehicleRepository: VehicleRepository = DataGoKrVehicleRepository(
-        Retrofit.Builder()
-            .baseUrl("https://apis.data.go.kr/")
-            .addConverterFactory(Json { ignoreUnknownKeys = true }.asConverterFactory("application/json".toMediaType()))
-            .build()
-            .create(),
-        decodedKey,
+        relay.retrofit("data-go-kr").create(),
+        relay.isConfigured,
     )
 }
