@@ -4,6 +4,9 @@
   "main": "src/index.js",
   // 고정한 wrangler 4.151.2가 지원하는 범위 안의 날짜(배포일)로 둔다.
   "compatibility_date": "2026-10-19",
+  // 앱은 https://sharing-fuel-cost-relay.<계정>.workers.dev 주소 하나만 쓴다. 버전별 미리보기 주소는 만들지 않는다.
+  "workers_dev": true,
+  "preview_urls": false,
   // 비밀값이 아닌 설정만 둔다. 키와 Firebase 프로젝트 번호는 `wrangler secret put`으로 넣는다.
   "vars": {
     // App Check 검증을 끄려면 "false". 운영에서는 항상 켠다.

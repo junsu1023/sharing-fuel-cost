@@ -28,12 +28,12 @@
 | 13 | 내 차 저장 | 완료 | 한 대 저장, 앱을 열면 자동 채움. 에뮬레이터 확인 |
 | 14 | 정산 기록 | 완료 | 결과 화면에서 자동 저장, 최근 50건, 보기·공유·삭제. 에뮬레이터 확인 |
 | 15 | 릴리스 서명과 R8 설정 | 완료 | R8, 리소스 축소 켬. 디버그 키로 서명한 release를 에뮬레이터에서 확인. 실제 업로드 키는 사용자가 만든다 |
-| 16 | REST API 키 서버 중계 | 진행 중 | 코드와 로컬 확인 완료(`docs/relay.md`). Cloudflare 배포, Firebase 설정은 사용자가 한다 |
+| 16 | REST API 키 서버 중계 | 완료 | Cloudflare 배포, Firebase 디버그 토큰으로 전체 흐름 확인. Play Integrity는 Play 내부 테스트에서 확인 필요 (`docs/relay.md`) |
 
 ## 공개 출시 전 할 일
 
 - 수익 목적이면 오피넷 이용을 석유공사와 협의한다.
-- 중계 서버를 배포하고 Firebase App Check를 설정한다. 배포한 Worker에서 국내 API 호출과 실제 토큰 검증을 확인한다. (`docs/relay.md`)
+- Play 내부 테스트 트랙으로 release를 설치해 Play Integrity 토큰이 중계 서버 검증을 통과하는지 확인한다. (`docs/relay.md`)
 - 상업적 이용 조건을 운영정책과 제휴 담당자에게 확인한다.
 - 업로드 키를 만들고 `local.properties`에 `release_store_file`, `release_store_password`, `release_key_alias`, `release_key_password`를 넣는다. 키스토어는 저장소 밖에 두고 따로 백업한다.
 - 릴리스(또는 Play 앱 서명) 키 해시를 카카오 콘솔에 등록한다. (`docs/kakao-mobility.md` 6번)
