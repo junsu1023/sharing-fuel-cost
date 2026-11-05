@@ -7,13 +7,17 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// Firebase 설정 파일은 git에 넣지 않는다. 없으면 플러그인을 적용하지 않고, 앱은 App Check 토큰 없이 동작한다.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val localProperties = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
-val kakaoRestApiKey: String = localProperties.getProperty("kakao_rest_api_key").orEmpty()
+// 지도 SDK의 네이티브 앱 키만 앱에 둔다. REST API 키들은 중계 서버(relay/)의 비밀값에 있다.
 val kakaoNativeAppKey: String = localProperties.getProperty("kakao_native_app_key").orEmpty()
-val opinetApiKey: String = localProperties.getProperty("opinet_api_key").orEmpty()
-val dataGoKrApiKey: String = localProperties.getProperty("data_go_kr_api_key").orEmpty()
+val relayBaseUrl: String = localProperties.getProperty("relay_base_url").orEmpty()
 
 // 업로드 키는 저장소 밖에 두고 local.properties에 경로와 비밀번호를 적는다. 없으면 release는 서명하지 않는다.
 val releaseStoreFile: String? = localProperties.getProperty("release_store_file")
@@ -42,10 +46,8 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField("String", "KAKAO_REST_API_KEY", "\"$kakaoRestApiKey\"")
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoNativeAppKey\"")
-        buildConfigField("String", "OPINET_API_KEY", "\"$opinetApiKey\"")
-        buildConfigField("String", "DATA_GO_KR_API_KEY", "\"$dataGoKrApiKey\"")
+        buildConfigField("String", "RELAY_BASE_URL", "\"$relayBaseUrl\"")
     }
 
     buildFeatures {
@@ -78,6 +80,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.hilt.android)
     implementation(libs.kakao.map)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.appcheck.playintegrity)
+    debugImplementation(libs.firebase.appcheck.debug)
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
