@@ -41,6 +41,7 @@
   - Firebase App Check의 SHA-256 (`docs/relay.md`)
   - 카카오 콘솔의 키 해시: SHA-1을 Base64로 바꾼 값 (`docs/kakao-mobility.md` 6번)
 - Play Console에 위치 권한 사용 목적, 개인정보처리방침 URL, 데이터 보안 양식을 입력한다. 위치와 주소는 중계 서버를 거쳐 카카오로 전송된다.
+- 개인정보처리방침은 `privacy/index.html`이고 main에 merge되면 GitHub Actions가 `https://junsu1023.github.io/sharing-fuel-cost/`에 게시한다. 저장소 [Settings] > [Pages]의 Source를 GitHub Actions로 한 번 설정해야 한다. 앱이 처리하는 정보가 바뀌면 이 페이지도 함께 고친다.
 - 내부 테스트 트랙으로 설치해 Play Integrity 토큰이 중계 서버 검증을 통과하는지 확인한다. (`docs/relay.md`)
 
 ### 공개 출시 전
