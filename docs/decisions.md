@@ -51,3 +51,4 @@
 | 2026-11-03 | | 입력 화면에서 뒤로가기를 두 번 눌러야 종료한다. 첫 번째에 토스트로 안내하고, 두 번째 입력 간격은 2초로 한다 | 사용자 요청. 간격은 흔히 쓰는 값으로 정함 |
 | 2026-11-05 | | 글꼴은 Noto Sans KR을 앱에 포함한다. 공식 Google Fonts 저장소의 가변 글꼴 하나(10.4MB)를 쓰고, release APK는 약 5MB 늘어난다 | 사용자 선택(내려받기 대신 포함) |
 | 2026-11-05 | | 서버 중계는 Cloudflare Workers에 Firebase App Check(Play Integrity) 검증까지 함께 넣는다 | 사용자 선택 |
+| 2026-11-08 | | 개인정보처리방침은 GitHub Pages로 게시한다. 게시자는 Morrow, 문의는 kjs991023@gmail.com. 개발 문서가 공개되지 않도록 `privacy/` 폴더만 Actions로 게시한다 | 사용자 선택 |
