@@ -1,0 +1,32 @@
+# privacy/ 폴더만 GitHub Pages로 게시한다. docs/의 개발 문서는 게시하지 않는다.
+name: 개인정보처리방침 게시
+
+on:
+  push:
+    branches: [main]
+    paths: ["privacy/**", ".github/workflows/privacy-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/configure-pages@v6.0.0
+      - uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: privacy
+      - id: deployment
+        uses: actions/deploy-pages@v5.0.1
