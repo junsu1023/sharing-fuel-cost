@@ -44,7 +44,7 @@ android {
     defaultConfig {
         applicationId = "com.jskim.sharingfuelcost"
         // Play에 올릴 때마다 1씩 올린다. 한 번 올린 번호는 다시 쓸 수 없다.
-        versionCode = 2
+        versionCode = 3
         versionName = "1.0"
 
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"$kakaoNativeAppKey\"")

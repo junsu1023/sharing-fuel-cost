@@ -52,3 +52,5 @@
 | 2026-11-05 | | 글꼴은 Noto Sans KR을 앱에 포함한다. 공식 Google Fonts 저장소의 가변 글꼴 하나(10.4MB)를 쓰고, release APK는 약 5MB 늘어난다 | 사용자 선택(내려받기 대신 포함) |
 | 2026-11-05 | | 서버 중계는 Cloudflare Workers에 Firebase App Check(Play Integrity) 검증까지 함께 넣는다 | 사용자 선택 |
 | 2026-11-08 | | 개인정보처리방침은 GitHub Pages로 게시한다. 게시자는 Morrow, 문의는 kjs991023@gmail.com. 개발 문서가 공개되지 않도록 `privacy/` 폴더만 Actions로 게시한다 | 사용자 선택 |
+| 2026-11-08 | | 앱 아이콘은 시안 B "방울 속 ÷"로 한다. 배경 #07704B, 흰 기름방울에 나누기 기호를 비워 넣는다. 테마 아이콘은 같은 도형을 쓴다. Play 스토어 아이콘은 `store/icon.svg`에서 512px로 만든다 | 사용자 선택 (시안 A, B, C 중) |
+| 2026-11-08 | | Play 그래픽 이미지는 시안 3 "문구 + 결과 카드"로 한다. 원본은 `store/feature-graphic.html`(#3), 결과는 `store/feature-graphic.png`(1024×500) | 사용자 선택 (시안 1, 2, 3 중) |

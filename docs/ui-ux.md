@@ -42,6 +42,7 @@ MVP의 화면과 UI 상태를 정의한다. 화면 구성은 기획의 입력 �
 - 버튼: 하단 고정 56dp, tonal과 filled를 1:1.6으로 배치. 정산 방식 버튼은 5:7로 나눈다.
 - 금액: 합계 52sp, 개인 26sp ExtraBold. 색 없이 크기와 굵기로만 강조한다.
 - 동적 색상(Material You)은 쓰지 않는다.
+- 앱 아이콘: 적응형 아이콘. 배경 primary(#07704B), 전경은 흰 기름방울 안에 나누기 기호(÷)를 비운 모양이며 테마 아이콘도 같은 도형이다. 원본은 `app/src/main/res/drawable/ic_launcher_*.xml`, Play 스토어용은 `store/icon.svg`, `store/icon-512.png`(512×512, RGBA)이다.
 
 ## 사용 흐름
 
