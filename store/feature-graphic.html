@@ -1,0 +1,80 @@
+<!doctype html>
+<!-- Play 스토어 그래픽 이미지(1024×500) 원본. 채택한 시안은 #3(문구 + 결과 카드)이고 #1, #2는 비교용으로 남긴다.
+     만들기: Chrome headless로 file://.../feature-graphic.html#3 을 1024×500으로 스크린샷 → store/feature-graphic.png -->
+<html lang="ko"><head><meta charset="utf-8">
+<style>
+  @font-face { font-family: "Noto Sans KR"; src: url("../presentation/src/main/res/font/noto_sans_kr.ttf"); font-weight: 100 900; }
+  :root { --green: #07704B; --deep: #00311F; --mint: #D6F5E6; --white: #FFFFFF; }
+  html, body { margin: 0; width: 1024px; height: 500px; overflow: hidden; }
+  body { font-family: "Noto Sans KR", sans-serif; background: var(--green); color: var(--white); }
+  .v { display: none; position: relative; width: 1024px; height: 500px; box-sizing: border-box; }
+  .icon { flex: none; }
+  h1 { margin: 0; font-weight: 800; letter-spacing: -1px; }
+  p { margin: 0; font-weight: 500; color: var(--mint); }
+
+  /* 1: 아이콘 + 문구 */
+  #v1 { align-items: center; gap: 56px; padding: 0 96px 0 120px; }
+  #v1 h1 { font-size: 76px; line-height: 1.1; }
+  #v1 p { font-size: 30px; line-height: 1.45; margin-top: 20px; }
+
+  /* 2: 가운데 정렬 */
+  #v2 { flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center;
+        background: radial-gradient(circle at 50% 42%, #0b8a5d 0%, var(--green) 55%, #055c3e 100%); }
+  #v2 h1 { font-size: 64px; }
+  #v2 p { font-size: 28px; }
+
+  /* 3: 문구 + 결과 카드 */
+  #v3 { align-items: center; justify-content: space-between; padding: 0 84px 0 96px; }
+  #v3 h1 { font-size: 60px; line-height: 1.15; }
+  #v3 p { font-size: 27px; line-height: 1.5; margin-top: 18px; }
+  .card { width: 330px; background: var(--white); color: #181C1A; border-radius: 28px; padding: 28px 30px;
+          box-shadow: 0 18px 40px rgba(0, 30, 18, .35); transform: rotate(-3deg); }
+  .card .route { font-size: 15px; color: #4F5853; font-weight: 500; }
+  .card .label { font-size: 17px; font-weight: 700; margin-top: 14px; }
+  .card .total { font-size: 50px; font-weight: 800; letter-spacing: -1px; line-height: 1.15; }
+  .card .row { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 18px; font-weight: 700; }
+  .card .who { display: flex; align-items: center; gap: 10px; }
+  .card .avatar { width: 34px; height: 34px; border-radius: 50%; background: #E7EBE9; display: grid; place-items: center; font-size: 15px; }
+  .card .amount { font-size: 22px; font-weight: 800; }
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <path id="dropDivide" fill-rule="evenodd" d="M54,27C54,27 36,48 36,62A18,18 0,0 0,72 62C72,48 54,27 54,27Z
+    M50.4,52a3.6,3.6 0,1 0,7.2 0a3.6,3.6 0,1 0,-7.2 0Z
+    M46.3,59H61.7A2.3,2.3 0,0 1,61.7 63.6H46.3A2.3,2.3 0,0 1,46.3 59Z
+    M50.4,71a3.6,3.6 0,1 0,7.2 0a3.6,3.6 0,1 0,-7.2 0Z"/>
+</defs></svg>
+
+<div class="v" id="v1">
+  <svg class="icon" width="230" height="230" viewBox="18 18 72 72" style="border-radius:52px; box-shadow:0 16px 36px rgba(0,30,18,.35)">
+    <rect x="0" y="0" width="108" height="108" fill="#0b8a5d"/><use href="#dropDivide" fill="#fff"/>
+  </svg>
+  <div><h1>기름값 나누기</h1><p>친구와 함께 탄 차,<br>실제 도로 거리로 기름값을 나눠요</p></div>
+</div>
+
+<div class="v" id="v2">
+  <svg class="icon" width="190" height="190" viewBox="27 22 54 54"><use href="#dropDivide" fill="#fff"/></svg>
+  <h1>기름값 나누기</h1>
+  <p>실제 도로 거리 · 차종 연비 · 오늘 평균 유가</p>
+</div>
+
+<div class="v" id="v3">
+  <div>
+    <h1>함께 탄 차,<br>깔끔하게 나눠요</h1>
+    <p>지도에서 탑승 위치만 고르면<br>사람별 기름값이 바로 나와요</p>
+  </div>
+  <div class="card">
+    <div class="route">강남역 → 사당역 → 속초해수욕장</div>
+    <div class="label">전체 기름값</div>
+    <div class="total">27,780원</div>
+    <div class="row"><span class="who"><span class="avatar">운</span>운전자</span><span class="amount">13,890원</span></div>
+    <div class="row"><span class="who"><span class="avatar">민</span>민지</span><span class="amount">13,890원</span></div>
+  </div>
+</div>
+
+<script>
+  const id = (location.hash || "#1").slice(1);
+  const el = document.getElementById("v" + id);
+  el.style.display = "flex";
+</script>
+</body></html>
