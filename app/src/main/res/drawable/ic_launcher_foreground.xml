@@ -1,21 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 512px 원본 아이콘 좌표를 그대로 쓰고, 108dp 캔버스의 가운데 72dp에 맞춰 줄인다. 나누기 기호는 evenOdd로 뚫어 배경색이 보이게 한다. -->
+<!-- 기름방울 안의 나누기 기호(÷). 기호 부분은 비워 배경색이 보이게 한다. 안전 영역(가운데 66dp) 안에 둔다. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="0.140625"
-        android:scaleY="0.140625"
-        android:translateX="18"
-        android:translateY="18">
-        <path
-            android:fillColor="#FFFFFF"
-            android:fillType="evenOdd"
-            android:pathData="M256,65C182,153 128,253 128,313A128,128 0,0 0,384 313C384,253 330,153 256,65Z
-                M229.5,242a26,26 0,1 0,52 0a26,26 0,1 0,-52 0Z
-                M201.5,291H309.5A16.5,16.5 0,0 1,309.5 324H201.5A16.5,16.5 0,0 1,201.5 291Z
-                M229.5,377a26,26 0,1 0,52 0a26,26 0,1 0,-52 0Z" />
-    </group>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,27C54,27 36,48 36,62A18,18 0,0 0,72 62C72,48 54,27 54,27Z
+            M50.4,52a3.6,3.6 0,1 0,7.2 0a3.6,3.6 0,1 0,-7.2 0Z
+            M46.3,59H61.7A2.3,2.3 0,0 1,61.7 63.6H46.3A2.3,2.3 0,0 1,46.3 59Z
+            M50.4,71a3.6,3.6 0,1 0,7.2 0a3.6,3.6 0,1 0,-7.2 0Z" />
 </vector>
