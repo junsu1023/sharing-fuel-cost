@@ -73,7 +73,7 @@
 2. `google-services.json`을 받아 `app/`에 둔다. git에는 넣지 않는다(이미 `.gitignore`에 있음).
 3. 프로젝트 설정의 프로젝트 번호와 앱 ID를 위 비밀값으로 넣는다.
 4. [보안] > [App Check] > [앱]에서 앱을 Play Integrity로 등록하고 서명 인증서 SHA-256을 넣는다. Play 앱 서명을 쓰면 Play Console [앱 무결성]의 앱 서명 키 SHA-256이다.
-5. Play Console [출시] > [앱 무결성] > [Play Integrity API]에서 이 Firebase 프로젝트를 연결한다. (프로젝트 소유자여야 함)
+5. Play Console [출시] > [앱 무결성] > [Play Integrity API]에서 이 Firebase 프로젝트를 연결한다. (프로젝트 소유자여야 함) 연결하지 않으면 기기에서 토큰을 받지 못해 모든 요청이 401이 된다. 2026-11-10 비공개 테스트에서 실제로 겪었다.
 6. 개발용: debug 빌드를 실행하면 logcat `DebugAppCheckProvider`에 "Enter this debug secret into the allow list" 토큰이 나온다고 문서에 있지만, 2026-11-05 에뮬레이터(API 34)에서는 찍히지 않았다. 그때는 `adb shell run-as com.jskim.sharingfuelcost cat shared_prefs/com.google.firebase.appcheck.debug.store.*.xml`의 `DEBUG_SECRET` 값을 쓴다. App Check [앱] 메뉴의 [디버그 토큰 관리]에 등록한다. 앱 데이터를 지우면 토큰이 새로 만들어진다.
 
 Play Integrity 기본 설정은 Google Play가 인식한 앱(`PLAY_RECOGNIZED`)만 통과시킨다. 그래서 release 빌드의 실제 확인은 Play 내부 테스트 트랙으로 설치해서 한다.
@@ -97,4 +97,4 @@ Play Integrity 기본 설정은 Google Play가 인식한 앱(`PLAY_RECOGNIZED`)�
 | Cloudflare에 배포한 Worker에서 국내 API 호출 | 2026-11-05 확인. 카카오 길찾기, 로컬, 오피넷, 공공데이터 모두 응답(해외 IP 차단 없음) |
 | 배포한 Worker가 토큰 없는 요청 401, 모르는 경로 404 | 2026-11-05 확인 |
 | 실제 Firebase 디버그 토큰으로 검증 통과 | 2026-11-05 에뮬레이터 debug 빌드로 정산 전체 흐름과 차종 검색 확인 |
-| Play Integrity 토큰으로 검증 통과 (release) | 미확인. Play 내부 테스트 트랙 설치 후 확인 필요 |
+| Play Integrity 토큰으로 검증 통과 (release) | 2026-11-10 비공개 테스트 설치본으로 확인. `wrangler tail`에서 주소 검색, 거리 조회, 유가, 차종 검색 모두 200 |
