@@ -28,7 +28,8 @@
 | 13 | 내 차 저장 | 완료 | 한 대 저장, 앱을 열면 자동 채움. 에뮬레이터 확인 |
 | 14 | 정산 기록 | 완료 | 결과 화면에서 자동 저장, 최근 50건, 보기·공유·삭제. 에뮬레이터 확인 |
 | 15 | 릴리스 서명과 R8 설정 | 완료 | R8, 리소스 축소 켬. 디버그 키로 서명한 release를 에뮬레이터에서 확인. 실제 업로드 키는 사용자가 만든다 |
-| 16 | REST API 키 서버 중계 | 완료 | Cloudflare 배포, Firebase 디버그 토큰으로 전체 흐름 확인. Play Integrity는 Play 내부 테스트에서 확인 필요 (`docs/relay.md`) |
+| 16 | REST API 키 서버 중계 | 완료 | Cloudflare 배포. 2026-11-10 비공개 테스트 설치본의 Play Integrity 토큰으로 네 경로 모두 통과 (`docs/relay.md`) |
+| 17 | 인앱 즉시 업데이트 | 완료 | versionCode 3. 업데이트 화면은 Play 설치본에서만 확인 가능 |
 
 ## 공개 출시 전 할 일
 
@@ -39,10 +40,10 @@
 - 업로드 키를 만들고 `local.properties`에 `release_store_file`, `release_store_password`, `release_key_alias`, `release_key_password`를 넣는다. 없으면 서명되지 않은 AAB가 나와 Play Console에 올릴 수 없다. 키스토어는 저장소 밖에 두고 따로 백업한다.
 - Play 앱 서명을 쓰면 Play가 앱 서명 키로 다시 서명한다. Play Console [앱 무결성]의 **앱 서명 키** 인증서로 다음을 등록한다. 업로드 키나 디버그 키 값으로는 내부 테스트 설치본에서 동작하지 않는다.
   - Firebase App Check의 SHA-256 (`docs/relay.md`)
-  - 카카오 콘솔의 키 해시: SHA-1을 Base64로 바꾼 값 (`docs/kakao-mobility.md` 6번)
+  - 카카오 콘솔의 키 해시: SHA-1을 Base64로 바꾼 값 (`docs/kakao-mobility.md` 6번). 끝의 `=`까지 넣는다. 2026-11-10 업로드 키 SHA-1을 앱 서명 키로 잘못 넣고, `=`가 빠져 지도 인증이 실패했다.
 - Play Console에 위치 권한 사용 목적, 개인정보처리방침 URL, 데이터 보안 양식을 입력한다. 위치와 주소는 중계 서버를 거쳐 카카오로 전송된다.
 - 개인정보처리방침은 `privacy/index.html`이고 main에 merge되면 GitHub Actions가 `https://junsu1023.github.io/sharing-fuel-cost/`에 게시한다. 저장소 [Settings] > [Pages]의 Source를 GitHub Actions로 한 번 설정해야 한다. 앱이 처리하는 정보가 바뀌면 이 페이지도 함께 고친다.
-- 내부 테스트 트랙으로 설치해 Play Integrity 토큰이 중계 서버 검증을 통과하는지 확인한다. (`docs/relay.md`)
+- 내부 테스트 트랙으로 설치해 Play Integrity 토큰이 중계 서버 검증을 통과하는지 확인한다. (`docs/relay.md`) 2026-11-10 확인. 처음에는 Play Console [앱 무결성] > [Play Integrity API]에 Cloud 프로젝트가 연결되지 않아 401이 났다.
 
 ### 공개 출시 전
 
