@@ -10,6 +10,9 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    // registerForActivityResult는 STARTED 전에 등록해야 해서 필드에서 만든다.
+    private val appUpdate = ImmediateAppUpdate(this)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -18,5 +21,10 @@ class MainActivity : ComponentActivity() {
                 FuelCostRoute()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appUpdate.check()
     }
 }
