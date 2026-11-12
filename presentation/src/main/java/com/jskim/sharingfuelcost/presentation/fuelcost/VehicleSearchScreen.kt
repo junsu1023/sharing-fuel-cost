@@ -84,7 +84,7 @@ private fun VehicleRow(vehicle: VehicleFuelEconomy, onClick: () -> Unit) {
                     R.string.vehicle_row_detail,
                     vehicle.year,
                     vehicle.fuelName,
-                    vehicle.kmPerLiter.toPlainString(),
+                    vehicleEfficiencyText(vehicle),
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -96,6 +96,14 @@ private fun VehicleRow(vehicle: VehicleFuelEconomy, onClick: () -> Unit) {
 
 internal fun VehicleFuelEconomy.displayName(): String = "$maker $model".trim()
 
+/** "15.2 km/L", "5.3 km/kWh". 전비를 찾지 못한 플러그인 하이브리드는 직접 입력을 안내한다. */
+@Composable
+internal fun vehicleEfficiencyText(vehicle: VehicleFuelEconomy): String {
+    val efficiency = vehicle.kmPerLiter ?: return stringResource(R.string.vehicle_efficiency_missing)
+    val unit = if (vehicle.fuelType == FuelType.ELECTRIC) R.string.unit_km_per_kwh else R.string.unit_km_per_liter
+    return stringResource(R.string.vehicle_efficiency, efficiency.toPlainString(), stringResource(unit))
+}
+
 @Preview(name = "라이트, 결과")
 @Preview(name = "다크, 결과", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
@@ -106,6 +114,8 @@ private fun VehicleSearchPreview() {
             search = VehicleSearchState.Results(
                 listOf(
                     VehicleFuelEconomy("현대", "아반떼", "2024", "휘발유", FuelType.GASOLINE, "15.2".toBigDecimal()),
+                    VehicleFuelEconomy("기아", "EV6 기본형 4WD 19인치", "2024", "전기", FuelType.ELECTRIC, "5.3".toBigDecimal()),
+                    VehicleFuelEconomy("BMW", "BMW i8", "2019", "전기+휘발유", FuelType.ELECTRIC, null),
                 ),
             ),
             onQueryChange = {},

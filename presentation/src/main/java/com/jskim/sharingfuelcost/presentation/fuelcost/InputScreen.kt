@@ -88,16 +88,17 @@ internal fun InputScreen(
                     action = stringResource(R.string.action_search_vehicle),
                     onAction = { onIntent(FuelCostIntent.OpenVehicleSearch) },
                     supporting = state.selectedVehicle?.let {
-                        stringResource(R.string.vehicle_selected_detail, it.year, it.fuelName, it.kmPerLiter.toPlainString())
+                        stringResource(R.string.vehicle_selected_detail, it.year, it.fuelName, vehicleEfficiencyText(it))
                     },
                 )
                 FuelTypeSelector(state.fuelType, onIntent)
+                val electric = state.fuelType == FuelType.ELECTRIC
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     FuelTextField(
                         value = state.kmPerLiter,
                         onValueChange = { onIntent(FuelCostIntent.KmPerLiterChanged(it)) },
-                        label = stringResource(R.string.label_fuel_economy),
-                        suffix = stringResource(R.string.unit_km_per_liter),
+                        label = stringResource(if (electric) R.string.label_electric_efficiency else R.string.label_fuel_economy),
+                        suffix = stringResource(if (electric) R.string.unit_km_per_kwh else R.string.unit_km_per_liter),
                         errorText = if (state.kmPerLiterInvalid) stringResource(R.string.error_positive) else null,
                         keyboardType = KeyboardType.Decimal,
                         modifier = Modifier.weight(1f),
@@ -105,8 +106,8 @@ internal fun InputScreen(
                     FuelTextField(
                         value = state.wonPerLiter,
                         onValueChange = { onIntent(FuelCostIntent.WonPerLiterChanged(it)) },
-                        label = stringResource(R.string.label_fuel_price),
-                        suffix = stringResource(R.string.unit_won_per_liter),
+                        label = stringResource(if (electric) R.string.label_charge_price else R.string.label_fuel_price),
+                        suffix = stringResource(if (electric) R.string.unit_won_per_kwh else R.string.unit_won_per_liter),
                         errorText = if (state.wonPerLiterInvalid) stringResource(R.string.error_positive) else null,
                         keyboardType = KeyboardType.Decimal,
                         modifier = Modifier.weight(1f),
@@ -249,6 +250,7 @@ private fun FuelTypeSelector(selected: FuelType, onIntent: (FuelCostIntent) -> U
         FuelType.GASOLINE to R.string.fuel_gasoline,
         FuelType.DIESEL to R.string.fuel_diesel,
         FuelType.LPG to R.string.fuel_lpg,
+        FuelType.ELECTRIC to R.string.fuel_electric,
     )
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         types.forEachIndexed { index, (type, label) ->
@@ -285,17 +287,24 @@ private fun MyCarRow(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit)
 @Composable
 private fun FuelPriceInfo(state: FuelCostUiState, onIntent: (FuelCostIntent) -> Unit) {
     val average = state.averageFuelPrice
+    val electric = state.fuelType == FuelType.ELECTRIC
     val fuelName = stringResource(
         when (state.fuelType) {
             FuelType.GASOLINE -> R.string.fuel_gasoline
             FuelType.DIESEL -> R.string.fuel_diesel
             FuelType.LPG -> R.string.fuel_lpg
+            FuelType.ELECTRIC -> R.string.fuel_electric
         },
     )
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = when {
+                    average != null && electric -> stringResource(
+                        R.string.charge_price_applied,
+                        average.wonPerLiter.toPlainString(),
+                        formatTradeDate(average.tradeDate),
+                    )
                     average != null -> stringResource(
                         R.string.fuel_average_applied,
                         fuelName,
@@ -312,7 +321,7 @@ private fun FuelPriceInfo(state: FuelCostUiState, onIntent: (FuelCostIntent) -> 
             )
             if (average != null) {
                 Text(
-                    text = stringResource(R.string.fuel_price_source),
+                    text = stringResource(if (electric) R.string.charge_price_source else R.string.fuel_price_source),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

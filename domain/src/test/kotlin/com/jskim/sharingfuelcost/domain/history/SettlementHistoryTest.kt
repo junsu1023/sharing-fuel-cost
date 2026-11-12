@@ -1,5 +1,6 @@
 package com.jskim.sharingfuelcost.domain.history
 
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.settlement.ParticipantShare
 import com.jskim.sharingfuelcost.domain.settlement.SettlementMethod
 import com.jskim.sharingfuelcost.domain.settlement.SettlementResult
@@ -9,7 +10,12 @@ import java.math.BigDecimal
 
 class SettlementHistoryTest {
 
-    private fun record(createdAt: Long, totalCostWon: Long = 33_000, kmPerLiter: String = "12.5") = SettlementRecord(
+    private fun record(
+        createdAt: Long,
+        totalCostWon: Long = 33_000,
+        kmPerLiter: String = "12.5",
+        fuelType: FuelType = FuelType.GASOLINE,
+    ) = SettlementRecord(
         createdAtMillis = createdAt,
         places = listOf("강남역", "사당역", "속초"),
         kmPerLiter = BigDecimal(kmPerLiter),
@@ -21,6 +27,7 @@ class SettlementHistoryTest {
             method = SettlementMethod.EQUAL,
             shares = listOf(ParticipantShare(null, 250_000, 16_500), ParticipantShare("민지", 240_000, 16_500)),
         ),
+        fuelType = fuelType,
     )
 
     @Test
@@ -45,6 +52,13 @@ class SettlementHistoryTest {
     fun `fuel economy written differently still counts as same calculation`() {
         val latest = record(1, kmPerLiter = "12.5")
         assertEquals(listOf(latest), addSettlementRecord(listOf(latest), record(2, kmPerLiter = "12.50")))
+    }
+
+    @Test
+    fun `same numbers with different fuel type are added as new record`() {
+        val latest = record(1)
+        val electric = record(2, fuelType = FuelType.ELECTRIC)
+        assertEquals(listOf(electric, latest), addSettlementRecord(listOf(latest), electric))
     }
 
     @Test

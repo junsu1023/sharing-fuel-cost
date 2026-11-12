@@ -25,9 +25,17 @@ class MyCarCodecTest {
     }
 
     @Test
+    fun `plug in hybrid without efficiency survives encode and decode`() {
+        val vehicle = VehicleFuelEconomy("기아", "니로 PHEV", "2022", "전기+휘발유", FuelType.ELECTRIC, null)
+        val car = MyCar(vehicle, "4.6".toBigDecimal(), FuelType.ELECTRIC)
+
+        assertEquals(car, decodeMyCar(encodeMyCar(car)))
+    }
+
+    @Test
     fun `broken or unknown stored value is treated as no saved car`() {
         assertNull(decodeMyCar("not json"))
-        assertNull(decodeMyCar("""{"kmPerLiter":"12.5","fuelType":"ELECTRIC"}"""))
+        assertNull(decodeMyCar("""{"kmPerLiter":"12.5","fuelType":"HYDROGEN"}"""))
         assertNull(decodeMyCar("""{"kmPerLiter":"abc","fuelType":"GASOLINE"}"""))
     }
 }

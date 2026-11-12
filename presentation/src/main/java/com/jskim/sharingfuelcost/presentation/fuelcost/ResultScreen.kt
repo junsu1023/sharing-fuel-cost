@@ -35,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.settlement.ParticipantShare
 import com.jskim.sharingfuelcost.domain.settlement.SettlementMethod
 import com.jskim.sharingfuelcost.domain.settlement.SettlementResult
@@ -49,6 +50,7 @@ internal fun ResultScreen(
     places: List<String>,
     kmPerLiter: String,
     wonPerLiter: String,
+    fuelType: FuelType,
     result: SettlementResult,
     onBack: () -> Unit,
     title: String = stringResource(R.string.result_title),
@@ -59,7 +61,8 @@ internal fun ResultScreen(
     val scope = rememberCoroutineScope()
     val copiedMessage = stringResource(R.string.copied)
     val methodName = stringResource(result.method.labelRes())
-    val shareText = buildShareText(context, places, result, methodName)
+    val electric = fuelType == FuelType.ELECTRIC
+    val shareText = buildShareText(context, places, result, methodName, electric)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -131,13 +134,16 @@ internal fun ResultScreen(
                         stringResource(R.string.distance_km, formatKm(result.totalDistanceMeters)),
                     )
                     DetailLine(
-                        stringResource(R.string.label_fuel_used),
-                        stringResource(R.string.fuel_liters, formatLiters(result.fuelLiters)),
+                        stringResource(if (electric) R.string.label_electricity_used else R.string.label_fuel_used),
+                        stringResource(
+                            if (electric) R.string.electricity_kwh else R.string.fuel_liters,
+                            formatLiters(result.fuelLiters),
+                        ),
                     )
                     DetailLine(stringResource(R.string.label_method), methodName)
                     Text(
                         text = stringResource(
-                            R.string.result_formula,
+                            if (electric) R.string.result_formula_electric else R.string.result_formula,
                             formatKm(result.totalDistanceMeters),
                             kmPerLiter,
                             wonPerLiter,
@@ -208,10 +214,16 @@ private fun buildShareText(
     places: List<String>,
     result: SettlementResult,
     methodName: String,
+    electric: Boolean,
 ): String = buildList {
     add(formatRoute(places))
     add(context.getString(R.string.share_total_distance, formatKm(result.totalDistanceMeters)))
-    add(context.getString(R.string.share_fuel_used, formatLiters(result.fuelLiters)))
+    add(
+        context.getString(
+            if (electric) R.string.share_electricity_used else R.string.share_fuel_used,
+            formatLiters(result.fuelLiters),
+        ),
+    )
     add(context.getString(R.string.share_total_cost, formatWon(result.totalCostWon)))
     add(context.getString(R.string.share_method, methodName))
     result.shares.forEach {
@@ -242,6 +254,7 @@ private fun ResultScreenPreview() {
             places = listOf("강남역 2번 출구", "사당역", "수원역", "속초해수욕장"),
             kmPerLiter = "12.5",
             wonPerLiter = "1650",
+            fuelType = FuelType.GASOLINE,
             result = SettlementResult(
                 totalDistanceMeters = 250_000,
                 fuelLiters = BigDecimal("20"),

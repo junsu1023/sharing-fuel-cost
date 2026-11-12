@@ -37,6 +37,14 @@ class SettlementCalculatorTest {
     }
 
     @Test
+    fun `electric efficiency and charge price use the same formula`() {
+        // 100km ÷ 5km/kWh = 20kWh, 20kWh × 325.6원 = 6,512원
+        val result = success(input(100_000, "5", "325.6", riders = emptyList()))
+        assertEquals(0, BigDecimal("20").compareTo(result.fuelLiters))
+        assertEquals(6_512, result.totalCostWon)
+    }
+
+    @Test
     fun `decimal fuel economy and large distance are calculated exactly`() {
         val result = success(input(1_000_000, "12.5", "1650", riders = emptyList()))
         assertEquals(132_000, result.totalCostWon)

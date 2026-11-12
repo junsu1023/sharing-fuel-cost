@@ -1,6 +1,7 @@
 package com.jskim.sharingfuelcost.data.history
 
 import android.content.Context
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.history.SettlementHistoryRepository
 import com.jskim.sharingfuelcost.domain.history.SettlementRecord
 import com.jskim.sharingfuelcost.domain.history.addSettlementRecord
@@ -56,6 +57,8 @@ private data class RecordDto(
     val totalCostWon: Long,
     val method: String,
     val shares: List<ShareDto>,
+    // 이 값이 생기기 전의 기록은 휘발유로 읽는다.
+    val fuelType: String = "GASOLINE",
 )
 
 @Serializable
@@ -78,6 +81,7 @@ internal fun encodeRecords(records: List<SettlementRecord>): String = json.encod
             totalCostWon = result.totalCostWon,
             method = result.method.name,
             shares = result.shares.map { ShareDto(it.name, it.distanceMeters, it.amountWon) },
+            fuelType = record.fuelType.name,
         )
     },
 )
@@ -99,6 +103,7 @@ internal fun decodeRecords(value: String): List<SettlementRecord> {
                     method = SettlementMethod.valueOf(dto.method),
                     shares = dto.shares.map { ParticipantShare(it.name, it.distanceMeters, it.amountWon) },
                 ),
+                fuelType = FuelType.valueOf(dto.fuelType),
             )
         }.getOrNull()
     }

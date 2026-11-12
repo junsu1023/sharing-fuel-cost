@@ -19,6 +19,8 @@ import retrofit2.http.Query
 import java.math.BigDecimal
 
 private const val PAGE_SIZE = 100
+// 2026-11-12 기준 115건이다.
+private const val PHEV_PAGE_SIZE = 1000
 private const val RESULT_OK = "00"
 private const val RESULT_NO_DATA = "03"
 private val NUMBER = Regex("""\d+(\.\d+)?""")
@@ -30,6 +32,16 @@ internal interface VehicleService {
         @Query("pageNo") pageNo: Int = 1,
         @Query("numOfRows") numOfRows: Int = PAGE_SIZE,
         @Query("apiType") apiType: String = "json",
+    ): JsonElement
+}
+
+/** 한국에너지공단 자동차 표시연비 정보(odcloud). 등급 조건으로 플러그인 하이브리드만 받는다. */
+internal interface PlugInHybridService {
+    @GET("api/15083023/v1/uddi:c5d3f252-f55b-469c-8573-e53160dd9e69")
+    suspend fun plugInHybrids(
+        @Query("cond[등급::EQ]") grade: String = "PHEV",
+        @Query("page") page: Int = 1,
+        @Query("perPage") perPage: Int = PHEV_PAGE_SIZE,
     ): JsonElement
 }
 
@@ -54,20 +66,32 @@ internal fun JsonElement.toVehicles(): LookupResult<List<VehicleFuelEconomy>> {
 private fun JsonObject.toVehicle(): VehicleFuelEconomy? {
     val fuelName = text("FUEL_NM").orEmpty()
     val fuelType = fuelTypeOf(fuelName) ?: return null
-    val efficiency = text("DISPLAY_EFF")?.let { NUMBER.find(it)?.value }?.toBigDecimalOrNull()
-        ?.takeIf { it.signum() > 0 } ?: return null
+    // 플러그인 하이브리드의 DISPLAY_EFF는 휘발유 연비(km/L)라 쓰지 않고, 전비는 저장소가 따로 채운다.
+    val efficiency = if (isPlugInHybrid(fuelName)) {
+        null
+    } else {
+        text("DISPLAY_EFF")?.toPositiveNumber() ?: return null
+    }
     return VehicleFuelEconomy(
         maker = text("COMP_NM").orEmpty(),
         model = text("MODEL_NM").orEmpty(),
         year = text("YEAR").orEmpty(),
         fuelName = fuelName,
         fuelType = fuelType,
-        kmPerLiter = BigDecimal(efficiency.stripTrailingZeros().toPlainString()),
+        kmPerLiter = efficiency,
     )
 }
 
-/** 표시연비 단위가 km/L가 아닌 전기, 수소와 값을 모르는 연료는 null이다. */
+private fun String.toPositiveNumber(): BigDecimal? = NUMBER.find(this)?.value?.toBigDecimalOrNull()
+    ?.takeIf { it.signum() > 0 }
+    ?.let { BigDecimal(it.stripTrailingZeros().toPlainString()) }
+
+/** `전기+휘발유`처럼 전기와 다른 연료를 함께 쓰는 차. */
+internal fun isPlugInHybrid(fuelName: String): Boolean = fuelName.contains("전기") && fuelName.contains("+")
+
+/** 전기와 플러그인 하이브리드는 전기로 계산한다. 수소와 값을 모르는 연료는 null이다. */
 internal fun fuelTypeOf(fuelName: String): FuelType? = when {
+    fuelName.contains("전기") -> FuelType.ELECTRIC
     fuelName.contains("LPG", ignoreCase = true) -> FuelType.LPG
     fuelName.contains("경유") || fuelName.contains("디젤") -> FuelType.DIESEL
     fuelName.contains("휘발유") || fuelName.contains("가솔린") -> FuelType.GASOLINE
@@ -76,14 +100,54 @@ internal fun fuelTypeOf(fuelName: String): FuelType? = when {
 
 private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 
+/** 두 API의 모델명은 띄어쓰기만 다른 경우가 있어 공백을 빼고 비교한다. */
+internal fun modelKey(model: String): String = model.filterNot { it.isWhitespace() }.lowercase()
+
+/**
+ * odcloud 응답 data[]에서 모델명 → 전비. 복합_연비는 "2.7 / 7.4"(전비 km/kWh / 휘발유 km/L)라 앞 값을 쓴다.
+ * 같은 모델명이 여러 건이면 처음 값을 쓴다.
+ */
+internal fun JsonElement.toPlugInHybridEfficiencies(): Map<String, BigDecimal>? {
+    val rows = ((this as? JsonObject)?.get("data") as? JsonArray) ?: return null
+    return rows.mapNotNull { row ->
+        val obj = row as? JsonObject ?: return@mapNotNull null
+        val model = obj.text("모델명") ?: return@mapNotNull null
+        val efficiency = obj.text("복합_연비")?.substringBefore("/")?.toPositiveNumber() ?: return@mapNotNull null
+        modelKey(model) to efficiency
+    }.distinctBy { it.first }.toMap()
+}
+
 internal class DataGoKrVehicleRepository(
     private val service: VehicleService,
+    private val plugInHybridService: PlugInHybridService,
     private val isConfigured: Boolean,
 ) : VehicleRepository {
 
+    // 앱이 떠 있는 동안 한 번만 받는다. 받지 못하면 다음 검색에서 다시 시도한다.
+    private var plugInHybridEfficiencies: Map<String, BigDecimal>? = null
+
     override suspend fun search(modelName: String): LookupResult<List<VehicleFuelEconomy>> {
         if (!isConfigured) return LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
-        return safeLookup { service.search(modelName).toVehicles() }
+        val result = safeLookup { service.search(modelName).toVehicles() }
+        if (result !is LookupResult.Success || result.value.none { isPlugInHybrid(it.fuelName) }) return result
+        // 전비를 받지 못해도 검색 결과는 보여 주고, 전비는 사용자가 입력한다.
+        val efficiencies = plugInHybridEfficiencies() ?: return result
+        return LookupResult.Success(
+            result.value.map { vehicle ->
+                if (isPlugInHybrid(vehicle.fuelName)) {
+                    vehicle.copy(kmPerLiter = efficiencies[modelKey(vehicle.model)])
+                } else {
+                    vehicle
+                }
+            },
+        )
+    }
+
+    private suspend fun plugInHybridEfficiencies(): Map<String, BigDecimal>? {
+        plugInHybridEfficiencies?.let { return it }
+        val loaded = runCatching { plugInHybridService.plugInHybrids().toPlugInHybridEfficiencies() }.getOrNull()
+        plugInHybridEfficiencies = loaded
+        return loaded
     }
 }
 
@@ -92,6 +156,7 @@ class VehicleDataSource(relay: RelayClient) {
 
     val vehicleRepository: VehicleRepository = DataGoKrVehicleRepository(
         relay.retrofit("data-go-kr").create(),
+        relay.retrofit("odcloud").create(),
         relay.isConfigured,
     )
 }

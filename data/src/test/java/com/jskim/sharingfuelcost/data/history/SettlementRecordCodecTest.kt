@@ -1,5 +1,6 @@
 package com.jskim.sharingfuelcost.data.history
 
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.history.SettlementRecord
 import com.jskim.sharingfuelcost.domain.settlement.ParticipantShare
 import com.jskim.sharingfuelcost.domain.settlement.SettlementMethod
@@ -27,6 +28,19 @@ class SettlementRecordCodecTest {
     @Test
     fun `records survive encode and decode with driver without name and exact decimals`() {
         assertEquals(listOf(record), decodeRecords(encodeRecords(listOf(record))))
+    }
+
+    @Test
+    fun `electric record keeps fuel type`() {
+        val electric = record.copy(fuelType = FuelType.ELECTRIC)
+        assertEquals(listOf(electric), decodeRecords(encodeRecords(listOf(electric))))
+    }
+
+    @Test
+    fun `record saved before fuel type existed is read as gasoline`() {
+        val stored = encodeRecords(listOf(record)).replace(""","fuelType":"GASOLINE"""", "")
+        assertEquals(false, stored.contains("fuelType"))
+        assertEquals(listOf(record), decodeRecords(stored))
     }
 
     @Test

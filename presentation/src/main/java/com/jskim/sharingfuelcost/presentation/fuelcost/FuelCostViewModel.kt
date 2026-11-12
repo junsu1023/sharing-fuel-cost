@@ -312,7 +312,14 @@ class FuelCostViewModel @Inject constructor(
     private fun selectVehicle(vehicle: VehicleFuelEconomy) {
         vehicleJob?.cancel()
         _uiState.update { state ->
-            state.withCar(MyCar(vehicle, vehicle.kmPerLiter, vehicle.fuelType)).copy(screen = FuelCostScreen.Input)
+            val efficiency = vehicle.kmPerLiter
+            if (efficiency != null) {
+                state.withCar(MyCar(vehicle, efficiency, vehicle.fuelType))
+            } else {
+                // 전비를 찾지 못한 플러그인 하이브리드는 차종과 연료만 채우고 전비는 사용자가 입력한다.
+                state.copy(selectedVehicle = vehicle, kmPerLiter = "", fuelType = vehicle.fuelType)
+                    .withAveragePriceIfNotEdited()
+            }.copy(screen = FuelCostScreen.Input)
         }
     }
 
@@ -468,6 +475,7 @@ class FuelCostViewModel @Inject constructor(
             kmPerLiter = state.kmPerLiter.toBigDecimal(),
             wonPerLiter = state.wonPerLiter.toBigDecimal(),
             result = result,
+            fuelType = state.fuelType,
         )
         viewModelScope.launch { historyRepository.add(record) }
     }

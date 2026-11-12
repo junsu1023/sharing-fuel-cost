@@ -3,6 +3,7 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
+import com.jskim.sharingfuelcost.domain.fuel.PUBLIC_CHARGE_PRICE
 import com.jskim.sharingfuelcost.domain.fuel.MyCar
 import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
@@ -50,6 +51,8 @@ class FuelCostViewModelTest {
     private var searchCalls = 0
     private var vehicleCalls = 0
     private val diesel = VehicleFuelEconomy("기아", "쏘렌토", "2023", "경유", FuelType.DIESEL, "14.3".toBigDecimal())
+    private val electricCar = VehicleFuelEconomy("기아", "EV6", "2024", "전기", FuelType.ELECTRIC, "5.3".toBigDecimal())
+    private val plugInWithoutEfficiency = VehicleFuelEconomy("BMW", "BMW i8", "2019", "전기+휘발유", FuelType.ELECTRIC, null)
     private var vehicleResult: LookupResult<List<VehicleFuelEconomy>> = LookupResult.Success(listOf(diesel))
     private val dispatcher = UnconfinedTestDispatcher()
     private var fuelPriceResult: LookupResult<List<AverageFuelPrice>> =
@@ -411,6 +414,36 @@ class FuelCostViewModelTest {
     }
 
     @Test
+    fun `electric uses public charge price even when fuel price lookup failed`() {
+        assertEquals(FuelPriceState.Failed(LookupFailure.NOT_CONFIGURED), state.fuelPrice)
+        viewModel.onIntent(FuelCostIntent.FuelTypeSelected(FuelType.ELECTRIC))
+        // 325.6원을 1원 단위로 반올림한다.
+        assertEquals("326", state.wonPerLiter)
+        assertEquals(PUBLIC_CHARGE_PRICE, state.averageFuelPrice)
+    }
+
+    @Test
+    fun `selecting electric vehicle fills efficiency and charge price`() {
+        fuelPriceResult = prices()
+        viewModel.onIntent(FuelCostIntent.VehicleSelected(electricCar))
+        assertEquals("5.3", state.kmPerLiter)
+        assertEquals(FuelType.ELECTRIC, state.fuelType)
+        assertEquals("326", state.wonPerLiter)
+    }
+
+    @Test
+    fun `plug in hybrid without efficiency switches to electric and leaves efficiency for manual input`() {
+        viewModel.onIntent(FuelCostIntent.KmPerLiterChanged("12.5"))
+        viewModel.onIntent(FuelCostIntent.VehicleSelected(plugInWithoutEfficiency))
+        assertEquals(FuelCostScreen.Input, state.screen)
+        assertEquals(plugInWithoutEfficiency, state.selectedVehicle)
+        assertEquals(FuelType.ELECTRIC, state.fuelType)
+        assertEquals("", state.kmPerLiter)
+        assertEquals("326", state.wonPerLiter)
+        assertEquals(null, state.currentCar)
+    }
+
+    @Test
     fun `average price failure leaves field empty for manual input`() {
         assertEquals(FuelPriceState.Failed(LookupFailure.NOT_CONFIGURED), state.fuelPrice)
         assertEquals("", state.wonPerLiter)
@@ -575,6 +608,7 @@ class FuelCostViewModelTest {
         assertEquals("12.5".toBigDecimal(), record.kmPerLiter)
         assertEquals("1650".toBigDecimal(), record.wonPerLiter)
         assertEquals(state.result, record.result)
+        assertEquals(FuelType.GASOLINE, record.fuelType)
     }
 
     @Test
@@ -711,7 +745,7 @@ class FuelCostViewModelTest {
 
     @Test
     fun `saved car fills vehicle fuel economy and fuel type on start`() {
-        storedCar = MyCar(diesel, diesel.kmPerLiter, FuelType.DIESEL)
+        storedCar = MyCar(diesel, diesel.kmPerLiter!!, FuelType.DIESEL)
         assertEquals(diesel, state.selectedVehicle)
         assertEquals("14.3", state.kmPerLiter)
         assertEquals(FuelType.DIESEL, state.fuelType)
@@ -748,7 +782,7 @@ class FuelCostViewModelTest {
 
     @Test
     fun `clearing my car removes it but keeps current input`() {
-        storedCar = MyCar(diesel, diesel.kmPerLiter, FuelType.DIESEL)
+        storedCar = MyCar(diesel, diesel.kmPerLiter!!, FuelType.DIESEL)
         viewModel.onIntent(FuelCostIntent.ClearMyCar)
         assertNull(storedCar)
         assertNull(state.savedCar)
