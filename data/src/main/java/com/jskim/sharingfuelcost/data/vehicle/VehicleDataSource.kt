@@ -2,6 +2,7 @@ package com.jskim.sharingfuelcost.data.vehicle
 
 import com.jskim.sharingfuelcost.data.kakao.safeLookup
 import com.jskim.sharingfuelcost.data.relay.RelayClient
+import com.jskim.sharingfuelcost.domain.fuel.FuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
@@ -65,20 +66,20 @@ internal fun JsonElement.toVehicles(): LookupResult<List<VehicleFuelEconomy>> {
 
 private fun JsonObject.toVehicle(): VehicleFuelEconomy? {
     val fuelName = text("FUEL_NM").orEmpty()
-    val fuelType = fuelTypeOf(fuelName) ?: return null
-    // 플러그인 하이브리드의 DISPLAY_EFF는 휘발유 연비(km/L)라 쓰지 않고, 전비는 저장소가 따로 채운다.
-    val efficiency = if (isPlugInHybrid(fuelName)) {
-        null
+    val fuelTypes = fuelTypesOf(fuelName).ifEmpty { return null }
+    val displayEfficiency = text("DISPLAY_EFF")?.toPositiveNumber()
+    val economies = if (isPlugInHybrid(fuelName)) {
+        // 플러그인 하이브리드의 DISPLAY_EFF는 연료 연비(km/L)다. 전비는 저장소가 odcloud에서 채운다.
+        fuelTypes.map { FuelEconomy(it, if (it == FuelType.ELECTRIC) null else displayEfficiency) }
     } else {
-        text("DISPLAY_EFF")?.toPositiveNumber() ?: return null
+        listOf(FuelEconomy(fuelTypes.single(), displayEfficiency ?: return null))
     }
     return VehicleFuelEconomy(
         maker = text("COMP_NM").orEmpty(),
         model = text("MODEL_NM").orEmpty(),
         year = text("YEAR").orEmpty(),
         fuelName = fuelName,
-        fuelType = fuelType,
-        kmPerLiter = efficiency,
+        economies = economies,
     )
 }
 
@@ -89,13 +90,17 @@ private fun String.toPositiveNumber(): BigDecimal? = NUMBER.find(this)?.value?.t
 /** `전기+휘발유`처럼 전기와 다른 연료를 함께 쓰는 차. */
 internal fun isPlugInHybrid(fuelName: String): Boolean = fuelName.contains("전기") && fuelName.contains("+")
 
-/** 전기와 플러그인 하이브리드는 전기로 계산한다. 수소와 값을 모르는 연료는 null이다. */
-internal fun fuelTypeOf(fuelName: String): FuelType? = when {
-    fuelName.contains("전기") -> FuelType.ELECTRIC
-    fuelName.contains("LPG", ignoreCase = true) -> FuelType.LPG
-    fuelName.contains("경유") || fuelName.contains("디젤") -> FuelType.DIESEL
-    fuelName.contains("휘발유") || fuelName.contains("가솔린") -> FuelType.GASOLINE
-    else -> null
+/**
+ * 연료명에 든 연료를 전기, 내연기관 연료 순으로 돌려준다. `전기+휘발유`는 [전기, 휘발유]다.
+ * 수소와 값을 모르는 연료는 빈 목록이다.
+ */
+internal fun fuelTypesOf(fuelName: String): List<FuelType> = buildList {
+    if (fuelName.contains("전기")) add(FuelType.ELECTRIC)
+    when {
+        fuelName.contains("LPG", ignoreCase = true) -> add(FuelType.LPG)
+        fuelName.contains("경유") || fuelName.contains("디젤") -> add(FuelType.DIESEL)
+        fuelName.contains("휘발유") || fuelName.contains("가솔린") -> add(FuelType.GASOLINE)
+    }
 }
 
 private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
@@ -135,7 +140,12 @@ internal class DataGoKrVehicleRepository(
         return LookupResult.Success(
             result.value.map { vehicle ->
                 if (isPlugInHybrid(vehicle.fuelName)) {
-                    vehicle.copy(kmPerLiter = efficiencies[modelKey(vehicle.model)])
+                    val electric = efficiencies[modelKey(vehicle.model)]
+                    vehicle.copy(
+                        economies = vehicle.economies.map {
+                            if (it.fuelType == FuelType.ELECTRIC) it.copy(kmPerLiter = electric) else it
+                        },
+                    )
                 } else {
                     vehicle
                 }
