@@ -1,5 +1,6 @@
 package com.jskim.sharingfuelcost.data.vehicle
 
+import com.jskim.sharingfuelcost.domain.fuel.FuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
@@ -29,7 +30,9 @@ class VehicleDataSourceTest {
     fun `parses documented fields from item array`() {
         val result = vehicles("""{"header":{"resultCode":"00"},"body":{"items":{"item":[$gasoline]}}}""")
         assertEquals(
-            listOf(VehicleFuelEconomy("현대", "아반떼", "2024", "휘발유", FuelType.GASOLINE, BigDecimal("15.2"))),
+            listOf(
+                VehicleFuelEconomy("현대", "아반떼", "2024", "휘발유", listOf(FuelEconomy(FuelType.GASOLINE, BigDecimal("15.2")))),
+            ),
             result,
         )
     }
@@ -48,8 +51,7 @@ class VehicleDataSourceTest {
             "MODEL_NM":"아반떼 1.6 LPI 15인치 타이어","CAR_TYPE":"내연기관","FUEL_NM":"LPG","COMP_NM":"현대",
             "HIGHWAY_EFF":"12.5","DISPLAY_EFF":"10.6"}]}}}}""",
         )
-        assertEquals(FuelType.LPG, result.single().fuelType)
-        assertEquals(BigDecimal("10.6"), result.single().kmPerLiter)
+        assertEquals(listOf(FuelEconomy(FuelType.LPG, BigDecimal("10.6"))), result.single().economies)
     }
 
     @Test
@@ -59,7 +61,7 @@ class VehicleDataSourceTest {
 
     @Test
     fun `reads number from efficiency with unit`() {
-        assertEquals(BigDecimal("14.3"), vehicles("""{"body":{"items":[$diesel]}}""").single().kmPerLiter)
+        assertEquals(BigDecimal("14.3"), vehicles("""{"body":{"items":[$diesel]}}""").single().kmPerLiter(FuelType.DIESEL))
     }
 
     @Test
@@ -70,15 +72,16 @@ class VehicleDataSourceTest {
     @Test
     fun `electric keeps display efficiency as km per kWh`() {
         val result = vehicles("""{"body":{"items":[$electric]}}""").single()
-        assertEquals(FuelType.ELECTRIC, result.fuelType)
-        assertEquals(BigDecimal("5.1"), result.kmPerLiter)
+        assertEquals(listOf(FuelEconomy(FuelType.ELECTRIC, BigDecimal("5.1"))), result.economies)
     }
 
     @Test
-    fun `plug in hybrid is electric without gasoline efficiency`() {
+    fun `plug in hybrid offers electric first and gasoline with display efficiency`() {
         val result = vehicles("""{"body":{"items":[$plugIn]}}""").single()
-        assertEquals(FuelType.ELECTRIC, result.fuelType)
-        assertEquals(null, result.kmPerLiter)
+        assertEquals(
+            listOf(FuelEconomy(FuelType.ELECTRIC, null), FuelEconomy(FuelType.GASOLINE, BigDecimal("18.6"))),
+            result.economies,
+        )
     }
 
     @Test
@@ -96,13 +99,14 @@ class VehicleDataSourceTest {
 
     @Test
     fun `maps fuel names`() {
-        assertEquals(FuelType.GASOLINE, fuelTypeOf("휘발유(하이브리드)"))
-        assertEquals(FuelType.DIESEL, fuelTypeOf("경유"))
-        assertEquals(FuelType.LPG, fuelTypeOf("LPG"))
-        assertEquals(FuelType.ELECTRIC, fuelTypeOf("전기"))
-        assertEquals(null, fuelTypeOf("수소"))
-        assertEquals(FuelType.ELECTRIC, fuelTypeOf("전기+휘발유"))
-        assertEquals(null, fuelTypeOf(""))
+        assertEquals(listOf(FuelType.GASOLINE), fuelTypesOf("휘발유(하이브리드)"))
+        assertEquals(listOf(FuelType.DIESEL), fuelTypesOf("경유"))
+        assertEquals(listOf(FuelType.LPG), fuelTypesOf("LPG"))
+        assertEquals(listOf(FuelType.ELECTRIC), fuelTypesOf("전기"))
+        assertEquals(emptyList<FuelType>(), fuelTypesOf("수소"))
+        assertEquals(listOf(FuelType.ELECTRIC, FuelType.GASOLINE), fuelTypesOf("전기+휘발유"))
+        assertEquals(listOf(FuelType.ELECTRIC, FuelType.DIESEL), fuelTypesOf("전기+경유"))
+        assertEquals(emptyList<FuelType>(), fuelTypesOf(""))
     }
 
     @Test
@@ -131,7 +135,9 @@ class VehicleDataSourceTest {
         val repository = DataGoKrVehicleRepository(services, services, isConfigured = true)
         runBlocking {
             val first = (repository.search("니로") as LookupResult.Success).value
-            assertEquals(listOf(BigDecimal("4.6"), BigDecimal("15.2")), first.map { it.kmPerLiter })
+            assertEquals(BigDecimal("4.6"), first[0].kmPerLiter(FuelType.ELECTRIC))
+            assertEquals(BigDecimal("18.6"), first[0].kmPerLiter(FuelType.GASOLINE))
+            assertEquals(BigDecimal("15.2"), first[1].kmPerLiter(FuelType.GASOLINE))
             repository.search("니로")
         }
         assertEquals(1, services.tableCalls)
@@ -142,7 +148,9 @@ class VehicleDataSourceTest {
         val services = FakeServices(plugIn, table = null)
         val repository = DataGoKrVehicleRepository(services, services, isConfigured = true)
         runBlocking {
-            assertEquals(null, (repository.search("니로") as LookupResult.Success).value.single().kmPerLiter)
+            val vehicle = (repository.search("니로") as LookupResult.Success).value.single()
+            assertEquals(null, vehicle.kmPerLiter(FuelType.ELECTRIC))
+            assertEquals(BigDecimal("18.6"), vehicle.kmPerLiter(FuelType.GASOLINE))
             repository.search("니로")
         }
         assertEquals(2, services.tableCalls)

@@ -140,6 +140,9 @@ data class FuelCostUiState(
     val totalDistanceInvalid: Boolean get() = isInvalidPositive(totalDistanceKm)
     val canAddRider: Boolean get() = riders.size < MAX_RIDERS
 
+    /** 차종을 골랐으면 그 차가 쓰는 연료만 고를 수 있다. 플러그인 하이브리드는 전기와 연료 두 개다. */
+    val selectableFuelTypes: List<FuelType> get() = selectedVehicle?.fuelTypes ?: FuelType.entries
+
     /** 전기는 평균 충전 단가 API가 없어 공공 급속충전 요금을 쓴다. */
     val averageFuelPrice: AverageFuelPrice?
         get() = if (fuelType == FuelType.ELECTRIC) {

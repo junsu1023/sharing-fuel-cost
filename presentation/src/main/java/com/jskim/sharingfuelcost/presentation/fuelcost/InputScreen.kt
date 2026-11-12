@@ -91,7 +91,7 @@ internal fun InputScreen(
                         stringResource(R.string.vehicle_selected_detail, it.year, it.fuelName, vehicleEfficiencyText(it))
                     },
                 )
-                FuelTypeSelector(state.fuelType, onIntent)
+                FuelTypeSelector(state.fuelType, state.selectableFuelTypes, onIntent)
                 val electric = state.fuelType == FuelType.ELECTRIC
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     FuelTextField(
@@ -245,13 +245,13 @@ private fun RiderItem(
 }
 
 @Composable
-private fun FuelTypeSelector(selected: FuelType, onIntent: (FuelCostIntent) -> Unit) {
+private fun FuelTypeSelector(selected: FuelType, selectable: List<FuelType>, onIntent: (FuelCostIntent) -> Unit) {
     val types = listOf(
         FuelType.GASOLINE to R.string.fuel_gasoline,
         FuelType.DIESEL to R.string.fuel_diesel,
         FuelType.LPG to R.string.fuel_lpg,
         FuelType.ELECTRIC to R.string.fuel_electric,
-    )
+    ).filter { it.first in selectable }
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         types.forEachIndexed { index, (type, label) ->
             SegmentedButton(

@@ -1,6 +1,7 @@
 package com.jskim.sharingfuelcost.data.vehicle
 
 import android.content.Context
+import com.jskim.sharingfuelcost.domain.fuel.FuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.fuel.MyCar
 import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
@@ -45,6 +46,14 @@ private data class VehicleDto(
     val model: String,
     val year: String,
     val fuelName: String,
+    val economies: List<EconomyDto>? = null,
+    // economies가 생기기 전 형식. 읽을 때만 쓴다.
+    val fuelType: String? = null,
+    val kmPerLiter: String? = null,
+)
+
+@Serializable
+private data class EconomyDto(
     val fuelType: String,
     val kmPerLiter: String? = null,
 )
@@ -53,26 +62,27 @@ internal fun encodeMyCar(car: MyCar): String = json.encodeToString(
     MyCarDto(
         kmPerLiter = car.kmPerLiter.toPlainString(),
         fuelType = car.fuelType.name,
-        vehicle = car.vehicle?.let {
-            VehicleDto(it.maker, it.model, it.year, it.fuelName, it.fuelType.name, it.kmPerLiter?.toPlainString())
+        vehicle = car.vehicle?.let { vehicle ->
+            VehicleDto(
+                vehicle.maker,
+                vehicle.model,
+                vehicle.year,
+                vehicle.fuelName,
+                economies = vehicle.economies.map { EconomyDto(it.fuelType.name, it.kmPerLiter?.toPlainString()) },
+            )
         },
     ),
 )
+
+private fun VehicleDto.toEconomies(): List<FuelEconomy> =
+    economies?.map { FuelEconomy(FuelType.valueOf(it.fuelType), it.kmPerLiter?.toBigDecimal()) }
+        ?: listOf(FuelEconomy(FuelType.valueOf(checkNotNull(fuelType)), kmPerLiter?.toBigDecimal()))
 
 /** 저장 형식이 깨졌거나 알 수 없는 값이면 저장된 차가 없는 것으로 본다. */
 internal fun decodeMyCar(value: String): MyCar? = runCatching {
     val dto = json.decodeFromString<MyCarDto>(value)
     MyCar(
-        vehicle = dto.vehicle?.let {
-            VehicleFuelEconomy(
-                it.maker,
-                it.model,
-                it.year,
-                it.fuelName,
-                FuelType.valueOf(it.fuelType),
-                it.kmPerLiter?.toBigDecimal(),
-            )
-        },
+        vehicle = dto.vehicle?.let { VehicleFuelEconomy(it.maker, it.model, it.year, it.fuelName, it.toEconomies()) },
         kmPerLiter = dto.kmPerLiter.toBigDecimal(),
         fuelType = FuelType.valueOf(dto.fuelType),
     )
