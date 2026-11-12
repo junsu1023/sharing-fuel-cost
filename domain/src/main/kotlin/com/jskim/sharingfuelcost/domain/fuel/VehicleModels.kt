@@ -9,11 +9,12 @@ data class VehicleFuelEconomy(
     val year: String,
     val fuelName: String,
     val fuelType: FuelType,
-    val kmPerLiter: BigDecimal,
+    /** 전기차와 플러그인 하이브리드는 전비(km/kWh)다. 플러그인 하이브리드의 전비를 찾지 못하면 null이다. */
+    val kmPerLiter: BigDecimal?,
 )
 
 interface VehicleRepository {
-    /** 모델명으로 표시연비를 찾는다. 원/L로 계산할 수 없는 전기차, 수소차는 제외한다. */
+    /** 모델명으로 표시연비를 찾는다. 단위가 맞지 않는 수소차는 제외한다. */
     suspend fun search(modelName: String): LookupResult<List<VehicleFuelEconomy>>
 }
 

@@ -3,6 +3,7 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 import com.jskim.sharingfuelcost.domain.fuel.AverageFuelPrice
 import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.fuel.MyCar
+import com.jskim.sharingfuelcost.domain.fuel.PUBLIC_CHARGE_PRICE
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.history.SettlementRecord
 import com.jskim.sharingfuelcost.domain.route.GeoPoint
@@ -139,8 +140,13 @@ data class FuelCostUiState(
     val totalDistanceInvalid: Boolean get() = isInvalidPositive(totalDistanceKm)
     val canAddRider: Boolean get() = riders.size < MAX_RIDERS
 
+    /** 전기는 평균 충전 단가 API가 없어 공공 급속충전 요금을 쓴다. */
     val averageFuelPrice: AverageFuelPrice?
-        get() = (fuelPrice as? FuelPriceState.Loaded)?.prices?.firstOrNull { it.type == fuelType }
+        get() = if (fuelType == FuelType.ELECTRIC) {
+            PUBLIC_CHARGE_PRICE
+        } else {
+            (fuelPrice as? FuelPriceState.Loaded)?.prices?.firstOrNull { it.type == fuelType }
+        }
 
     fun riderDistanceInvalid(rider: RiderInput): Boolean {
         if (isInvalidPositive(rider.distanceKm)) return true

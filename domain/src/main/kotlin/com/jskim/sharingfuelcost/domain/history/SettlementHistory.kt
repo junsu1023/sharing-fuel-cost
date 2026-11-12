@@ -1,5 +1,6 @@
 package com.jskim.sharingfuelcost.domain.history
 
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.settlement.SettlementResult
 import java.math.BigDecimal
 
@@ -13,12 +14,15 @@ data class SettlementRecord(
     val kmPerLiter: BigDecimal,
     val wonPerLiter: BigDecimal,
     val result: SettlementResult,
+    /** 전기면 [kmPerLiter], [wonPerLiter]가 km/kWh, 원/kWh다. 이 값이 생기기 전의 기록은 휘발유로 읽는다. */
+    val fuelType: FuelType = FuelType.GASOLINE,
 ) {
     /** 운전자는 이름이 없으므로 탑승자 이름만 경유 순서대로 남는다. */
     val riderNames: List<String> get() = result.shares.mapNotNull { it.name }
 
     fun hasSameContent(other: SettlementRecord): Boolean =
         places == other.places &&
+            fuelType == other.fuelType &&
             kmPerLiter.compareTo(other.kmPerLiter) == 0 &&
             wonPerLiter.compareTo(other.wonPerLiter) == 0 &&
             result == other.result

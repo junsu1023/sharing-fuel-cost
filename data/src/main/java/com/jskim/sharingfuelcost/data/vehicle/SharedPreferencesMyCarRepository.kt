@@ -46,7 +46,7 @@ private data class VehicleDto(
     val year: String,
     val fuelName: String,
     val fuelType: String,
-    val kmPerLiter: String,
+    val kmPerLiter: String? = null,
 )
 
 internal fun encodeMyCar(car: MyCar): String = json.encodeToString(
@@ -54,7 +54,7 @@ internal fun encodeMyCar(car: MyCar): String = json.encodeToString(
         kmPerLiter = car.kmPerLiter.toPlainString(),
         fuelType = car.fuelType.name,
         vehicle = car.vehicle?.let {
-            VehicleDto(it.maker, it.model, it.year, it.fuelName, it.fuelType.name, it.kmPerLiter.toPlainString())
+            VehicleDto(it.maker, it.model, it.year, it.fuelName, it.fuelType.name, it.kmPerLiter?.toPlainString())
         },
     ),
 )
@@ -70,7 +70,7 @@ internal fun decodeMyCar(value: String): MyCar? = runCatching {
                 it.year,
                 it.fuelName,
                 FuelType.valueOf(it.fuelType),
-                it.kmPerLiter.toBigDecimal(),
+                it.kmPerLiter?.toBigDecimal(),
             )
         },
         kmPerLiter = dto.kmPerLiter.toBigDecimal(),

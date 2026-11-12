@@ -135,7 +135,7 @@ fun FuelCostRoute(viewModel: FuelCostViewModel = hiltViewModel()) {
             },
         )
         FuelCostScreen.Result -> state.result?.let {
-            ResultScreen(state.routePlaces, state.kmPerLiter, state.wonPerLiter, it, onBack)
+            ResultScreen(state.routePlaces, state.kmPerLiter, state.wonPerLiter, state.fuelType, it, onBack)
         }
         FuelCostScreen.History -> HistoryScreen(
             records = state.history,
@@ -149,6 +149,7 @@ fun FuelCostRoute(viewModel: FuelCostViewModel = hiltViewModel()) {
                     places = record.places,
                     kmPerLiter = record.kmPerLiter.toPlainString(),
                     wonPerLiter = record.wonPerLiter.toPlainString(),
+                    fuelType = record.fuelType,
                     result = record.result,
                     onBack = onBack,
                     title = formatRecordTime(record.createdAtMillis),

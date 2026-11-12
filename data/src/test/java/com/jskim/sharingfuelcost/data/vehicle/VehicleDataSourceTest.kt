@@ -22,6 +22,7 @@ class VehicleDataSourceTest {
     private val diesel = """{"COMP_NM":"기아","MODEL_NM":"쏘렌토","YEAR":"2023","FUEL_NM":"경유","DISPLAY_EFF":"14.3km/L"}"""
     private val electric = """{"COMP_NM":"현대","MODEL_NM":"아이오닉","YEAR":"2024","FUEL_NM":"전기","DISPLAY_EFF":"5.1"}"""
     private val hydrogen = """{"COMP_NM":"현대","MODEL_NM":"넥쏘","YEAR":"2024","FUEL_NM":"수소","DISPLAY_EFF":"96.2"}"""
+    private val plugIn = """{"COMP_NM":"기아","MODEL_NM":"니로(DE) 1.6GDI 플러그인 하이브리드_6DCT (15)","YEAR":"2022","FUEL_NM":"전기+휘발유","DISPLAY_EFF":"18.6","GRADE":"PHEV"}"""
     private val noEfficiency = """{"COMP_NM":"현대","MODEL_NM":"아반떼","YEAR":"2024","FUEL_NM":"휘발유","DISPLAY_EFF":""}"""
 
     @Test
@@ -62,8 +63,35 @@ class VehicleDataSourceTest {
     }
 
     @Test
-    fun `excludes electric hydrogen and missing efficiency`() {
-        assertEquals(0, vehicles("""{"body":{"items":[$electric,$hydrogen,$noEfficiency]}}""").size)
+    fun `excludes hydrogen and missing efficiency`() {
+        assertEquals(0, vehicles("""{"body":{"items":[$hydrogen,$noEfficiency]}}""").size)
+    }
+
+    @Test
+    fun `electric keeps display efficiency as km per kWh`() {
+        val result = vehicles("""{"body":{"items":[$electric]}}""").single()
+        assertEquals(FuelType.ELECTRIC, result.fuelType)
+        assertEquals(BigDecimal("5.1"), result.kmPerLiter)
+    }
+
+    @Test
+    fun `plug in hybrid is electric without gasoline efficiency`() {
+        val result = vehicles("""{"body":{"items":[$plugIn]}}""").single()
+        assertEquals(FuelType.ELECTRIC, result.fuelType)
+        assertEquals(null, result.kmPerLiter)
+    }
+
+    @Test
+    fun `plug in hybrid efficiency is first value keyed without spaces`() {
+        val table = Json.parseToJsonElement(
+            """{"data":[{"모델명":"니로(DE) 1.6GDI 플러그인 하이브리드_6DCT (15)","복합_연비":"4.6 / 18.6"},
+            {"모델명":"볼보 XC60T8 AWD","복합_연비":"3.1 / 11.7"},{"모델명":"볼보 XC60T8 AWD","복합_연비":"2.9 / 11.0"},
+            {"모델명":"값 없음","복합_연비":null}]}""",
+        ).toPlugInHybridEfficiencies()!!
+        assertEquals(BigDecimal("4.6"), table[modelKey("니로(DE)1.6GDI 플러그인하이브리드_6DCT (15)")])
+        assertEquals(BigDecimal("3.1"), table[modelKey("볼보 XC60T8 AWD")])
+        assertEquals(2, table.size)
+        assertEquals(null, Json.parseToJsonElement("""{"error":1}""").toPlugInHybridEfficiencies())
     }
 
     @Test
@@ -71,9 +99,9 @@ class VehicleDataSourceTest {
         assertEquals(FuelType.GASOLINE, fuelTypeOf("휘발유(하이브리드)"))
         assertEquals(FuelType.DIESEL, fuelTypeOf("경유"))
         assertEquals(FuelType.LPG, fuelTypeOf("LPG"))
-        assertEquals(null, fuelTypeOf("전기"))
+        assertEquals(FuelType.ELECTRIC, fuelTypeOf("전기"))
         assertEquals(null, fuelTypeOf("수소"))
-        assertEquals(FuelType.GASOLINE, fuelTypeOf("전기+휘발유"))
+        assertEquals(FuelType.ELECTRIC, fuelTypeOf("전기+휘발유"))
         assertEquals(null, fuelTypeOf(""))
     }
 
@@ -82,6 +110,42 @@ class VehicleDataSourceTest {
         assertEquals(emptyList<Any>(), vehicles("""{"header":{"resultCode":"03"}}"""))
         assertEquals(LookupResult.Failure(LookupFailure.UNEXPECTED), parse("""{"header":{"resultCode":"99"}}"""))
         assertEquals(LookupResult.Failure(LookupFailure.UNEXPECTED), parse("""{"unknown":1}"""))
+    }
+
+    private class FakeServices(
+        private val items: String,
+        private val table: String?,
+    ) : VehicleService, PlugInHybridService {
+        var tableCalls = 0
+        override suspend fun search(modelName: String, pageNo: Int, numOfRows: Int, apiType: String): JsonElement =
+            Json.parseToJsonElement("""{"body":{"items":[$items]}}""")
+        override suspend fun plugInHybrids(grade: String, page: Int, perPage: Int): JsonElement {
+            tableCalls++
+            return Json.parseToJsonElement(table ?: throw IOException())
+        }
+    }
+
+    @Test
+    fun `plug in hybrid gets efficiency from odcloud table once and others are untouched`() {
+        val services = FakeServices("$plugIn,$gasoline", """{"data":[{"모델명":"니로(DE) 1.6GDI 플러그인 하이브리드_6DCT (15)","복합_연비":"4.6 / 18.6"}]}""")
+        val repository = DataGoKrVehicleRepository(services, services, isConfigured = true)
+        runBlocking {
+            val first = (repository.search("니로") as LookupResult.Success).value
+            assertEquals(listOf(BigDecimal("4.6"), BigDecimal("15.2")), first.map { it.kmPerLiter })
+            repository.search("니로")
+        }
+        assertEquals(1, services.tableCalls)
+    }
+
+    @Test
+    fun `plug in hybrid table failure keeps results with empty efficiency and retries later`() {
+        val services = FakeServices(plugIn, table = null)
+        val repository = DataGoKrVehicleRepository(services, services, isConfigured = true)
+        runBlocking {
+            assertEquals(null, (repository.search("니로") as LookupResult.Success).value.single().kmPerLiter)
+            repository.search("니로")
+        }
+        assertEquals(2, services.tableCalls)
     }
 
     @Test
@@ -94,14 +158,17 @@ class VehicleDataSourceTest {
                 apiType: String,
             ): JsonElement = throw IOException()
         }
+        val table = object : PlugInHybridService {
+            override suspend fun plugInHybrids(grade: String, page: Int, perPage: Int): JsonElement = throw IOException()
+        }
         runBlocking {
             assertEquals(
                 LookupResult.Failure(LookupFailure.NOT_CONFIGURED),
-                DataGoKrVehicleRepository(service, isConfigured = false).search("아반떼"),
+                DataGoKrVehicleRepository(service, table, isConfigured = false).search("아반떼"),
             )
             assertEquals(
                 LookupResult.Failure(LookupFailure.NETWORK),
-                DataGoKrVehicleRepository(service, isConfigured = true).search("아반떼"),
+                DataGoKrVehicleRepository(service, table, isConfigured = true).search("아반떼"),
             )
         }
     }

@@ -16,6 +16,7 @@
 | `/kakao-local/v2/local/search/address.json`, `keyword.json`, `geo/coord2address.json` | `dapi.kakao.com` | `Authorization: KakaoAK` 헤더 |
 | `/opinet/api/avgAllPrice.do` | `www.opinet.co.kr` | `code` 쿼리 (`certkey`는 동작하지 않음) |
 | `/data-go-kr/B553530/CAREFF/CAREFF_LIST` | `apis.data.go.kr` | `serviceKey` 쿼리 (디코딩된 키를 넣는다) |
+| `/odcloud/api/15083023/v1/uddi:c5d3f252-…` | `api.odcloud.kr` | `serviceKey` 쿼리 (`DATA_GO_KR_API_KEY`를 함께 쓴다) |
 
 - 앱이 `code`, `certkey`, `serviceKey`를 보내도 지우고 중계 서버의 키만 쓴다.
 - 원래 서버의 상태 코드와 본문을 그대로 돌려줘, 앱의 오류 구분(인증, 쿼터, 형식)을 유지한다.
