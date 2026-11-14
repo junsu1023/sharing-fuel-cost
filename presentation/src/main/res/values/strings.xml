@@ -17,8 +17,6 @@
     <string name="vehicle_search_hint">아반떼처럼 모델명을 입력해 주세요. 플러그인 하이브리드는 전기와 연료 중에서 고를 수 있고, 수소차는 나오지 않아요</string>
     <string name="vehicle_search_empty">찾은 차종이 없어요. 연비를 직접 입력해 주세요</string>
     <string name="vehicle_not_configured">차종 검색 인증키가 설정되지 않았어요. 연비를 직접 입력해 주세요</string>
-    <string name="vehicle_row_detail">%1$s · %2$s · %3$s</string>
-    <string name="vehicle_selected_detail">%1$s · %2$s · %3$s</string>
     <string name="vehicle_efficiency">%1$s %2$s</string>
     <string name="vehicle_efficiency_missing">전비 정보 없음</string>
     <string name="fuel_gasoline">휘발유</string>

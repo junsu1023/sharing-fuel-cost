@@ -81,12 +81,7 @@ private fun VehicleRow(vehicle: VehicleFuelEconomy, onClick: () -> Unit) {
         ) {
             Text(vehicle.displayName(), style = MaterialTheme.typography.titleMedium)
             Text(
-                text = stringResource(
-                    R.string.vehicle_row_detail,
-                    vehicle.year,
-                    vehicle.fuelName,
-                    vehicleEfficiencyText(vehicle),
-                ),
+                text = vehicleDetailText(vehicle),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -96,6 +91,13 @@ private fun VehicleRow(vehicle: VehicleFuelEconomy, onClick: () -> Unit) {
 }
 
 internal fun VehicleFuelEconomy.displayName(): String = "$maker $model".trim()
+
+/** "2024 · 휘발유 · 15.2 km/L". 최신 목록에서 온 차는 출시년도가 없어 빼고 표시한다. */
+@Composable
+internal fun vehicleDetailText(vehicle: VehicleFuelEconomy): String =
+    listOf(vehicle.year, vehicle.fuelName, vehicleEfficiencyText(vehicle))
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
 
 /** "15.2 km/L", 플러그인 하이브리드는 "3.5 km/kWh / 11.7 km/L". 찾지 못한 전비는 정보 없음으로 표시한다. */
 @Composable

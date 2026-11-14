@@ -84,17 +84,44 @@ class VehicleDataSourceTest {
         )
     }
 
+    private val latestPlugIn = """{"제조(수입사)":"기아","모델명":"니로(DE)1.6GDI 플러그인하이브리드_6DCT (15)","등급":"PHEV","복합_연비":"4.6 / 18.6","1회충전주행거리":"40"}"""
+    private val latestElectric = """{"제조(수입사)":"기아","모델명":"EV5(OV1) 항속형 2WD","등급":"1","복합_연비":"5","1회충전주행거리":"460"}"""
+
+    private fun latest(vararg rows: String) = Json.parseToJsonElement("""{"data":[${rows.joinToString(",")}]}""").toLatestVehicles()
+
     @Test
-    fun `plug in hybrid efficiency is first value keyed without spaces`() {
-        val table = Json.parseToJsonElement(
-            """{"data":[{"모델명":"니로(DE) 1.6GDI 플러그인 하이브리드_6DCT (15)","복합_연비":"4.6 / 18.6"},
-            {"모델명":"볼보 XC60T8 AWD","복합_연비":"3.1 / 11.7"},{"모델명":"볼보 XC60T8 AWD","복합_연비":"2.9 / 11.0"},
-            {"모델명":"값 없음","복합_연비":null}]}""",
-        ).toPlugInHybridEfficiencies()!!
-        assertEquals(BigDecimal("4.6"), table[modelKey("니로(DE)1.6GDI 플러그인하이브리드_6DCT (15)")])
-        assertEquals(BigDecimal("3.1"), table[modelKey("볼보 XC60T8 AWD")])
-        assertEquals(2, table.size)
-        assertEquals(null, Json.parseToJsonElement("""{"error":1}""").toPlugInHybridEfficiencies())
+    fun `latest list keeps electric and plug in hybrid only`() {
+        val result = latest(
+            latestPlugIn,
+            latestElectric,
+            latestElectric,
+            """{"제조(수입사)":"현대","모델명":"넥쏘","등급":"FCEV","복합_연비":"96.2","1회충전주행거리":"700"}""",
+            """{"제조(수입사)":"현대","모델명":"아반떼","등급":"3","복합_연비":"15.2","1회충전주행거리":null}""",
+            """{"모델명":"값 없음","등급":"PHEV","복합_연비":null}""",
+        )!!
+        assertEquals(
+            listOf(
+                VehicleFuelEconomy(
+                    "기아", "니로(DE)1.6GDI 플러그인하이브리드_6DCT (15)", "", "전기+휘발유",
+                    listOf(FuelEconomy(FuelType.ELECTRIC, BigDecimal("4.6")), FuelEconomy(FuelType.GASOLINE, BigDecimal("18.6"))),
+                ),
+                VehicleFuelEconomy("기아", "EV5(OV1) 항속형 2WD", "", "전기", listOf(FuelEconomy(FuelType.ELECTRIC, BigDecimal("5")))),
+            ),
+            result,
+        )
+        assertEquals(null, Json.parseToJsonElement("""{"error":1}""").toLatestVehicles())
+    }
+
+    @Test
+    fun `merge fills plug in hybrid electric by model without spaces and appends new models`() {
+        val careff = vehicles("""{"body":{"items":[$plugIn,$gasoline]}}""")
+        val merged = mergeVehicles(careff, latest(latestPlugIn, latestElectric)!!)
+        assertEquals(3, merged.size)
+        assertEquals(BigDecimal("4.6"), merged[0].kmPerLiter(FuelType.ELECTRIC))
+        assertEquals(BigDecimal("18.6"), merged[0].kmPerLiter(FuelType.GASOLINE))
+        assertEquals("2022", merged[0].year)
+        assertEquals(careff[1], merged[1])
+        assertEquals("EV5(OV1) 항속형 2WD", merged[2].model)
     }
 
     @Test
@@ -118,42 +145,29 @@ class VehicleDataSourceTest {
 
     private class FakeServices(
         private val items: String,
-        private val table: String?,
-    ) : VehicleService, PlugInHybridService {
-        var tableCalls = 0
+        private val latest: String?,
+    ) : VehicleService, LatestFuelEconomyService {
         override suspend fun search(modelName: String, pageNo: Int, numOfRows: Int, apiType: String): JsonElement =
             Json.parseToJsonElement("""{"body":{"items":[$items]}}""")
-        override suspend fun plugInHybrids(grade: String, page: Int, perPage: Int): JsonElement {
-            tableCalls++
-            return Json.parseToJsonElement(table ?: throw IOException())
-        }
+        override suspend fun search(modelName: String, page: Int, perPage: Int): JsonElement =
+            Json.parseToJsonElement(latest ?: throw IOException())
     }
 
     @Test
-    fun `plug in hybrid gets efficiency from odcloud table once and others are untouched`() {
-        val services = FakeServices("$plugIn,$gasoline", """{"data":[{"모델명":"니로(DE) 1.6GDI 플러그인 하이브리드_6DCT (15)","복합_연비":"4.6 / 18.6"}]}""")
+    fun `search finds latest electric vehicle missing from careff`() {
+        val services = FakeServices("", """{"data":[$latestElectric]}""")
         val repository = DataGoKrVehicleRepository(services, services, isConfigured = true)
-        runBlocking {
-            val first = (repository.search("니로") as LookupResult.Success).value
-            assertEquals(BigDecimal("4.6"), first[0].kmPerLiter(FuelType.ELECTRIC))
-            assertEquals(BigDecimal("18.6"), first[0].kmPerLiter(FuelType.GASOLINE))
-            assertEquals(BigDecimal("15.2"), first[1].kmPerLiter(FuelType.GASOLINE))
-            repository.search("니로")
-        }
-        assertEquals(1, services.tableCalls)
+        val result = runBlocking { (repository.search("ev5") as LookupResult.Success).value }
+        assertEquals(listOf(FuelEconomy(FuelType.ELECTRIC, BigDecimal("5"))), result.single().economies)
     }
 
     @Test
-    fun `plug in hybrid table failure keeps results with empty efficiency and retries later`() {
-        val services = FakeServices(plugIn, table = null)
+    fun `latest list failure keeps careff results with empty plug in hybrid electric`() {
+        val services = FakeServices(plugIn, latest = null)
         val repository = DataGoKrVehicleRepository(services, services, isConfigured = true)
-        runBlocking {
-            val vehicle = (repository.search("니로") as LookupResult.Success).value.single()
-            assertEquals(null, vehicle.kmPerLiter(FuelType.ELECTRIC))
-            assertEquals(BigDecimal("18.6"), vehicle.kmPerLiter(FuelType.GASOLINE))
-            repository.search("니로")
-        }
-        assertEquals(2, services.tableCalls)
+        val vehicle = runBlocking { (repository.search("니로") as LookupResult.Success).value.single() }
+        assertEquals(null, vehicle.kmPerLiter(FuelType.ELECTRIC))
+        assertEquals(BigDecimal("18.6"), vehicle.kmPerLiter(FuelType.GASOLINE))
     }
 
     @Test
@@ -166,8 +180,8 @@ class VehicleDataSourceTest {
                 apiType: String,
             ): JsonElement = throw IOException()
         }
-        val table = object : PlugInHybridService {
-            override suspend fun plugInHybrids(grade: String, page: Int, perPage: Int): JsonElement = throw IOException()
+        val table = object : LatestFuelEconomyService {
+            override suspend fun search(modelName: String, page: Int, perPage: Int): JsonElement = throw IOException()
         }
         runBlocking {
             assertEquals(
