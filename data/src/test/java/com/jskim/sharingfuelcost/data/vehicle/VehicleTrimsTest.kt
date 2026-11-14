@@ -18,21 +18,30 @@ class VehicleTrimsTest {
         assertEquals("아반떼(AD PE) 1.6가솔린", trimModelName("아반떼(AD PE) 1.6가솔린 (15'''타이어)"))
         assertEquals("그랜저(IG개조) 2.5 GDI", trimModelName("그랜저(IG개조) 2.5 GDI_17인치타이어"))
         assertEquals("모닝 1.0가솔린", trimModelName("모닝 25MY 1.0가솔린 14\""))
-        assertEquals("카니발(KA4 PE) 2.2디젤 하이리무진 9인", trimModelName(" 카니발(KA4 PE) 2.2디젤 하이리무진 9인 18/19\""))
+        assertEquals("카니발(KA4 PE) 2.2디젤 하이리무진", trimModelName(" 카니발(KA4 PE) 2.2디젤 하이리무진 9인 18/19\""))
         assertEquals("모닝(JA PE) 1.0가솔린 밴형", trimModelName("모닝(JA PE)_1.0가솔린_14인치타이어_밴형"))
     }
 
     @Test
     fun `removes model year marks and built in cam but keeps other options`() {
         assertEquals("아반떼 1.6 가솔린", trimModelName("아반떼 1.6 가솔린 16인치 타이어(22MY)"))
-        assertEquals("쏘렌토 2.2디젤 2WD 5인", trimModelName("쏘렌토 2.2디젤 2WD 5인 18인치타이어 (빌트인캠)(22)"))
-        assertEquals("쏘렌토 2.0디젤 2WD ISG 5인", trimModelName("쏘렌토(19MY) 2.0디젤 2WD ISG 5인 (18\" 타이어)"))
-        assertEquals("쏘렌토(MQ4 PE) 2.2디젤 2WD 5인", trimModelName("쏘렌토(MQ4 PE) 2.2디젤 2WD 5인 18인치 빌트인캠 유 25MY"))
+        assertEquals("쏘렌토 2.2디젤 2WD", trimModelName("쏘렌토 2.2디젤 2WD 5인 18인치타이어 (빌트인캠)(22)"))
+        assertEquals("쏘렌토 2.0디젤 2WD ISG", trimModelName("쏘렌토(19MY) 2.0디젤 2WD ISG 5인 (18\" 타이어)"))
+        assertEquals("쏘렌토(MQ4 PE) 2.2디젤 2WD", trimModelName("쏘렌토(MQ4 PE) 2.2디젤 2WD 5인 18인치 빌트인캠 유 25MY"))
         assertEquals("K5 PE 1.6T-GDI", trimModelName("K5 PE 1.6T-GDI 17인치(빌트인캠 미장착)"))
         assertEquals("EV6 항속형 RWD", trimModelName("EV6 항속형 RWD 19인치(빌트인캠미적용)"))
         assertEquals("아반떼 1.6 T-GDI 6MT", trimModelName("아반떼 1.6 T-GDI 6MT 18인치 타이어"))
         assertEquals("아이오닉5 개조 항속형 RWD (C)", trimModelName("아이오닉5 개조 항속형 RWD 19인치(C)"))
         assertEquals("BMW 520d", trimModelName("BMW 520d"))
+    }
+
+    @Test
+    fun `removes seat count but keeps similar looking words`() {
+        assertEquals("카니발 2.2디젤 2WD", trimModelName("카니발 2.2디젤 2WD 11인승 (17\" 타이어)"))
+        assertEquals("쏘렌토 2.2디젤 2WD ISG", trimModelName("쏘렌토(19MY) 2.2디젤 2WD ISG 7인(18\" 타이어)"))
+        assertEquals("Mercedes-Benz GLE 300 d 4MATIC", trimModelName("Mercedes-Benz GLE 300 d 4MATIC(5seater)"))
+        assertEquals("카니발 2.2디젤", trimModelName("카니발 2.2디젤 7인 19인치(22)"))
+        assertEquals("스타리아 3.5 LPi 인스퍼레이션", trimModelName("스타리아 3.5 LPi 인스퍼레이션"))
     }
 
     private fun car(model: String, year: String, fuelName: String, vararg economies: FuelEconomy) =
