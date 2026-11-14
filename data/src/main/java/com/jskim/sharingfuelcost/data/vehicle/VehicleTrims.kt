@@ -12,15 +12,18 @@ private val TIRE = Regex("""\d{2}(?:\s*/\s*\d{2})?\s*$INCH(?:\s*/\s*\d{2}\s*$INC
 private val MODEL_YEAR = Regex("""\((?:\d{2}MY|\d{2})\)|\b\d{2}MY\b""")
 // (빌트인캠), 빌트인캠 유, 빌트인캠 무, (빌트인캠 미장착), (빌트인캠미적용), 빌트인캠 통합
 private val BUILT_IN_CAM = Regex("""\(?빌트인캠\s*(?:미적용|적용|미장착|장착|통합|무|유)?\)?""")
+// 5인, 7인승, 11인승, (5seater). 인승만 다른 트림은 표시연비가 같거나 거의 같다.
+private val SEATS = Regex("""(?<![\d.])\d{1,2}\s*인승?(?![가-힣A-Za-z])|\(?\b\d{1,2}\s*seater\)?""", RegexOption.IGNORE_CASE)
 private val EMPTY_PARENS = Regex("""\(\s*\)""")
 private val SPACES = Regex("""\s+""")
 
-/** 모델명에서 타이어 크기, 연식 변경 표기, 빌트인캠 여부를 지운다. 출시년도는 년식 칸으로 따로 구분한다. */
+/** 모델명에서 타이어 크기, 연식 변경 표기, 빌트인캠 여부, 인승을 지운다. 출시년도는 년식 칸으로 따로 구분한다. */
 internal fun trimModelName(model: String): String {
     val trimmed = model.replace('_', ' ')
         .replace(TIRE, " ")
         .replace(MODEL_YEAR, " ")
         .replace(BUILT_IN_CAM, " ")
+        .replace(SEATS, " ")
         .replace(EMPTY_PARENS, " ")
         .replace(SPACES, " ")
         .trim()
