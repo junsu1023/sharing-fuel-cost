@@ -87,9 +87,7 @@ internal fun InputScreen(
                     placeholder = stringResource(R.string.placeholder_vehicle),
                     action = stringResource(R.string.action_search_vehicle),
                     onAction = { onIntent(FuelCostIntent.OpenVehicleSearch) },
-                    supporting = state.selectedVehicle?.let {
-                        stringResource(R.string.vehicle_selected_detail, it.year, it.fuelName, vehicleEfficiencyText(it))
-                    },
+                    supporting = state.selectedVehicle?.let { vehicleDetailText(it) },
                 )
                 FuelTypeSelector(state.fuelType, state.selectableFuelTypes, onIntent)
                 val electric = state.fuelType == FuelType.ELECTRIC

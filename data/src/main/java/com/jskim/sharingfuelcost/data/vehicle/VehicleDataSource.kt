@@ -8,6 +8,8 @@ import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
 import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.LookupResult
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -20,8 +22,8 @@ import retrofit2.http.Query
 import java.math.BigDecimal
 
 private const val PAGE_SIZE = 100
-// 2026-11-12 기준 115건이다.
-private const val PHEV_PAGE_SIZE = 1000
+private const val GRADE_PHEV = "PHEV"
+private const val GRADE_FCEV = "FCEV"
 private const val RESULT_OK = "00"
 private const val RESULT_NO_DATA = "03"
 private val NUMBER = Regex("""\d+(\.\d+)?""")
@@ -36,13 +38,16 @@ internal interface VehicleService {
     ): JsonElement
 }
 
-/** 한국에너지공단 자동차 표시연비 정보(odcloud). 등급 조건으로 플러그인 하이브리드만 받는다. */
-internal interface PlugInHybridService {
+/**
+ * 한국에너지공단 자동차 표시연비 정보(odcloud, 2026-04-24). CAREFF_LIST에 없는 2025년 이후 전기차와
+ * 플러그인 하이브리드 전비를 여기서 찾는다. 모델명 LIKE는 대소문자를 구분하지 않고 띄어쓰기는 구분한다.
+ */
+internal interface LatestFuelEconomyService {
     @GET("api/15083023/v1/uddi:c5d3f252-f55b-469c-8573-e53160dd9e69")
-    suspend fun plugInHybrids(
-        @Query("cond[등급::EQ]") grade: String = "PHEV",
+    suspend fun search(
+        @Query("cond[모델명::LIKE]") modelName: String,
         @Query("page") page: Int = 1,
-        @Query("perPage") perPage: Int = PHEV_PAGE_SIZE,
+        @Query("perPage") perPage: Int = PAGE_SIZE,
     ): JsonElement
 }
 
@@ -109,56 +114,74 @@ private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive
 internal fun modelKey(model: String): String = model.filterNot { it.isWhitespace() }.lowercase()
 
 /**
- * odcloud 응답 data[]에서 모델명 → 전비. 복합_연비는 "2.7 / 7.4"(전비 km/kWh / 휘발유 km/L)라 앞 값을 쓴다.
- * 같은 모델명이 여러 건이면 처음 값을 쓴다.
+ * odcloud 응답 data[]에서 연료를 확실히 알 수 있는 전기차와 플러그인 하이브리드만 고른다.
+ * 유종 필드가 없어 내연기관 차는 휘발유, 경유, LPG를 구분할 수 없으므로 제외한다. 출시년도도 없다.
+ * - 플러그인 하이브리드: 등급 PHEV, 복합_연비 "2.7 / 7.4"(전비 km/kWh / 휘발유 km/L)
+ * - 전기차: 1회충전주행거리가 있고 등급이 PHEV, FCEV(수소)가 아님
+ * 형식이 다르면 null이다.
  */
-internal fun JsonElement.toPlugInHybridEfficiencies(): Map<String, BigDecimal>? {
+internal fun JsonElement.toLatestVehicles(): List<VehicleFuelEconomy>? {
     val rows = ((this as? JsonObject)?.get("data") as? JsonArray) ?: return null
     return rows.mapNotNull { row ->
         val obj = row as? JsonObject ?: return@mapNotNull null
-        val model = obj.text("모델명") ?: return@mapNotNull null
-        val efficiency = obj.text("복합_연비")?.substringBefore("/")?.toPositiveNumber() ?: return@mapNotNull null
-        modelKey(model) to efficiency
-    }.distinctBy { it.first }.toMap()
+        val model = obj.text("모델명")?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        val grade = obj.text("등급")?.trim()
+        val combined = obj.text("복합_연비") ?: return@mapNotNull null
+        val (fuelName, economies) = when {
+            grade == GRADE_PHEV -> "전기+휘발유" to listOf(
+                FuelEconomy(FuelType.ELECTRIC, combined.substringBefore("/").toPositiveNumber()),
+                FuelEconomy(FuelType.GASOLINE, combined.substringAfter("/", "").toPositiveNumber()),
+            )
+            grade != GRADE_FCEV && obj.text("1회충전주행거리")?.toPositiveNumber() != null ->
+                "전기" to listOf(FuelEconomy(FuelType.ELECTRIC, combined.toPositiveNumber() ?: return@mapNotNull null))
+            else -> return@mapNotNull null
+        }
+        VehicleFuelEconomy(obj.text("제조(수입사)").orEmpty(), model, "", fuelName, economies)
+    }.distinct()
 }
 
 internal class DataGoKrVehicleRepository(
     private val service: VehicleService,
-    private val plugInHybridService: PlugInHybridService,
+    private val latestService: LatestFuelEconomyService,
     private val isConfigured: Boolean,
 ) : VehicleRepository {
 
-    // 앱이 떠 있는 동안 한 번만 받는다. 받지 못하면 다음 검색에서 다시 시도한다.
-    private var plugInHybridEfficiencies: Map<String, BigDecimal>? = null
-
     override suspend fun search(modelName: String): LookupResult<List<VehicleFuelEconomy>> {
         if (!isConfigured) return LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
-        val result = safeLookup { service.search(modelName).toVehicles() }
-        if (result !is LookupResult.Success || result.value.none { isPlugInHybrid(it.fuelName) }) return result
-        // 전비를 받지 못해도 검색 결과는 보여 주고, 전비는 사용자가 입력한다.
-        val efficiencies = plugInHybridEfficiencies() ?: return result
-        return LookupResult.Success(
-            result.value.map { vehicle ->
-                if (isPlugInHybrid(vehicle.fuelName)) {
-                    val electric = efficiencies[modelKey(vehicle.model)]
-                    vehicle.copy(
-                        economies = vehicle.economies.map {
-                            if (it.fuelType == FuelType.ELECTRIC) it.copy(kmPerLiter = electric) else it
-                        },
-                    )
-                } else {
-                    vehicle
-                }
+        return coroutineScope {
+            val latestJob = async { runCatching { latestService.search(modelName).toLatestVehicles() }.getOrNull() }
+            val result = safeLookup { service.search(modelName).toVehicles() }
+            // 최신 목록을 받지 못해도 CAREFF 결과는 보여 준다. PHEV 전비만 비고 사용자가 입력한다.
+            val latest = latestJob.await()
+            if (result !is LookupResult.Success || latest == null) return@coroutineScope result
+            LookupResult.Success(mergeVehicles(result.value, latest))
+        }
+    }
+}
+
+/**
+ * CAREFF 결과의 PHEV 전비를 최신 목록에서 채우고, CAREFF에 없는 최신 전기차와 PHEV를 뒤에 붙인다.
+ * 두 API의 모델명은 띄어쓰기만 다른 경우가 있어 공백을 빼고 비교한다.
+ */
+internal fun mergeVehicles(
+    vehicles: List<VehicleFuelEconomy>,
+    latest: List<VehicleFuelEconomy>,
+): List<VehicleFuelEconomy> {
+    val electricByModel = latest
+        .filter { isPlugInHybrid(it.fuelName) }
+        .groupBy { modelKey(it.model) }
+        .mapValues { (_, same) -> same.firstNotNullOfOrNull { it.kmPerLiter(FuelType.ELECTRIC) } }
+    val filled = vehicles.map { vehicle ->
+        if (!isPlugInHybrid(vehicle.fuelName)) return@map vehicle
+        val electric = electricByModel[modelKey(vehicle.model)]
+        vehicle.copy(
+            economies = vehicle.economies.map {
+                if (it.fuelType == FuelType.ELECTRIC) it.copy(kmPerLiter = electric) else it
             },
         )
     }
-
-    private suspend fun plugInHybridEfficiencies(): Map<String, BigDecimal>? {
-        plugInHybridEfficiencies?.let { return it }
-        val loaded = runCatching { plugInHybridService.plugInHybrids().toPlugInHybridEfficiencies() }.getOrNull()
-        plugInHybridEfficiencies = loaded
-        return loaded
-    }
+    val known = vehicles.map { modelKey(it.model) }.toSet()
+    return filled + latest.filter { modelKey(it.model) !in known }
 }
 
 /** 공공데이터포털 표시연비 구현을 만든다. 서비스 키는 중계 서버가 붙인다. */
