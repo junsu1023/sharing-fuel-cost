@@ -140,6 +140,18 @@ test("data.go.kr gets decoded service key encoded exactly once", async () => {
   assert.ok(calls[0].url.search.includes("serviceKey=a%2Bb%2Fc%3D%3D"));
 });
 
+test("odcloud keeps Korean condition query and gets data.go.kr key", async () => {
+  const { calls } = await relay(
+    "/odcloud/api/15083023/v1/uddi:c5d3f252-f55b-469c-8573-e53160dd9e69?page=1&perPage=1000&cond%5B%EB%93%B1%EA%B8%89%3A%3AEQ%5D=PHEV&serviceKey=attacker",
+  );
+  assert.equal(
+    calls[0].url.origin + calls[0].url.pathname,
+    "https://api.odcloud.kr/api/15083023/v1/uddi:c5d3f252-f55b-469c-8573-e53160dd9e69",
+  );
+  assert.equal(calls[0].url.searchParams.get("cond[등급::EQ]"), "PHEV");
+  assert.equal(calls[0].url.searchParams.get("serviceKey"), "a+b/c==");
+});
+
 test("unknown path, other host path, and non GET method are rejected without calling upstream", async () => {
   for (const path of ["/kakao-local/v2/user/me", "/kakao-navi/v1/waypoints/directions", "/other", "/"]) {
     const { response, calls } = await relay(path);

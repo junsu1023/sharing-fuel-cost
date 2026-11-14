@@ -32,6 +32,14 @@ const ROUTES = [
     // 비밀값에는 디코딩된 키를 넣는다. searchParams가 한 번만 인코딩한다.
     authorize: (url, headers, env) => url.searchParams.set("serviceKey", env.DATA_GO_KR_API_KEY),
   },
+  {
+    // 한국에너지공단 자동차 표시연비 정보(2026-04-24). 플러그인 하이브리드의 전비만 여기서 가져온다.
+    prefix: "/odcloud/",
+    origin: "https://api.odcloud.kr/",
+    paths: ["api/15083023/v1/uddi:c5d3f252-f55b-469c-8573-e53160dd9e69"],
+    // 공공데이터포털 같은 계정의 키라 DATA_GO_KR_API_KEY를 함께 쓴다. (2026-11-12 호출로 확인)
+    authorize: (url, headers, env) => url.searchParams.set("serviceKey", env.DATA_GO_KR_API_KEY),
+  },
 ];
 
 /** 앱이 키를 보내더라도 쓰지 않도록 지운다. */

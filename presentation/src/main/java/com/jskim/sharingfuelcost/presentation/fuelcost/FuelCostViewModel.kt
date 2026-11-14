@@ -3,6 +3,7 @@ package com.jskim.sharingfuelcost.presentation.fuelcost
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jskim.sharingfuelcost.domain.fuel.FuelPriceRepository
+import com.jskim.sharingfuelcost.domain.fuel.FuelType
 import com.jskim.sharingfuelcost.domain.fuel.MyCar
 import com.jskim.sharingfuelcost.domain.fuel.MyCarRepository
 import com.jskim.sharingfuelcost.domain.fuel.VehicleFuelEconomy
@@ -170,7 +171,7 @@ class FuelCostViewModel @Inject constructor(
         )
         is FuelCostIntent.WonPerLiterChanged ->
             state.copy(wonPerLiter = intent.value.decimalOnly(), wonPerLiterEdited = true)
-        is FuelCostIntent.FuelTypeSelected -> state.copy(fuelType = intent.type).withAveragePriceIfNotEdited()
+        is FuelCostIntent.FuelTypeSelected -> state.withVehicleFuel(intent.type)
         FuelCostIntent.ApplyAverageFuelPrice -> state.copy(wonPerLiterEdited = false).withAveragePriceIfNotEdited()
         is FuelCostIntent.MethodSelected -> state.copy(method = intent.method)
         is FuelCostIntent.OpenRecord -> state.copy(screen = FuelCostScreen.HistoryDetail(intent.createdAtMillis))
@@ -311,9 +312,31 @@ class FuelCostViewModel @Inject constructor(
 
     private fun selectVehicle(vehicle: VehicleFuelEconomy) {
         vehicleJob?.cancel()
+        // 플러그인 하이브리드는 값이 있는 첫 연료(전기 → 연료)를 고른다. 둘 다 없으면 첫 연료로 두고 사용자가 입력한다.
+        val economy = vehicle.economies.firstOrNull { it.kmPerLiter != null } ?: vehicle.economies.first()
         _uiState.update { state ->
-            state.withCar(MyCar(vehicle, vehicle.kmPerLiter, vehicle.fuelType)).copy(screen = FuelCostScreen.Input)
+            state.copy(selectedVehicle = vehicle).withVehicleFuel(economy.fuelType).copy(screen = FuelCostScreen.Input)
         }
+    }
+
+    /**
+     * 연료를 바꾼다. 차종을 골랐으면 그 차의 연료만 받고 그 연료의 표시연비를 채운다. 값이 없으면 비워 사용자가 입력한다.
+     * 전기와 연료 사이를 바꾸면 단위(km/kWh·원/kWh, km/L·원/L)가 달라지므로 직접 고친 값도 지운다.
+     */
+    private fun FuelCostUiState.withVehicleFuel(type: FuelType): FuelCostUiState {
+        val vehicle = selectedVehicle
+        if (vehicle != null && type !in vehicle.fuelTypes) return this
+        val unitChanged = (type == FuelType.ELECTRIC) != (fuelType == FuelType.ELECTRIC)
+        return copy(
+            fuelType = type,
+            kmPerLiter = when {
+                vehicle != null -> vehicle.kmPerLiter(type)?.toPlainString().orEmpty()
+                unitChanged -> ""
+                else -> kmPerLiter
+            },
+            wonPerLiter = if (unitChanged) "" else wonPerLiter,
+            wonPerLiterEdited = wonPerLiterEdited && !unitChanged,
+        ).withAveragePriceIfNotEdited()
     }
 
     private fun FuelCostUiState.withCar(car: MyCar) = copy(
@@ -468,6 +491,7 @@ class FuelCostViewModel @Inject constructor(
             kmPerLiter = state.kmPerLiter.toBigDecimal(),
             wonPerLiter = state.wonPerLiter.toBigDecimal(),
             result = result,
+            fuelType = state.fuelType,
         )
         viewModelScope.launch { historyRepository.add(record) }
     }
