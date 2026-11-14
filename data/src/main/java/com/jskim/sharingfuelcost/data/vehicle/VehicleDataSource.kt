@@ -9,6 +9,7 @@ import com.jskim.sharingfuelcost.domain.fuel.VehicleRepository
 import com.jskim.sharingfuelcost.domain.route.LookupFailure
 import com.jskim.sharingfuelcost.domain.route.LookupResult
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -21,7 +22,10 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 import java.math.BigDecimal
 
+// CAREFF_LIST는 numOfRows를 더 크게 줘도 한 번에 100건만 준다(2026-11-14 확인).
 private const val PAGE_SIZE = 100
+// 짧은 검색어로 결과가 아주 많을 때 요청 수를 제한한다. 1000건을 넘는 모델명 검색은 확인하지 못했다.
+private const val MAX_PAGES = 10
 private const val GRADE_PHEV = "PHEV"
 private const val GRADE_FCEV = "FCEV"
 private const val CAR_TYPE_HYBRID = "하이브리드"
@@ -68,6 +72,13 @@ internal fun JsonElement.toVehicles(): LookupResult<List<VehicleFuelEconomy>> {
         else -> emptyList()
     }
     return LookupResult.Success(rows.mapNotNull { it.toVehicle() })
+}
+
+/** 응답의 전체 건수. 없거나 숫자가 아니면 null이다. */
+internal fun JsonElement.totalCount(): Int? {
+    val root = this as? JsonObject ?: return null
+    val response = root["response"] as? JsonObject ?: root
+    return ((response["body"] as? JsonObject))?.text("totalCount")?.toIntOrNull()
 }
 
 private fun JsonObject.toVehicle(): VehicleFuelEconomy? {
@@ -154,13 +165,24 @@ internal class DataGoKrVehicleRepository(
         if (!isConfigured) return LookupResult.Failure(LookupFailure.NOT_CONFIGURED)
         return coroutineScope {
             val latestJob = async { runCatching { latestService.search(modelName).toLatestVehicles() }.getOrNull() }
-            val result = safeLookup { service.search(modelName).toVehicles() }
+            val result = safeLookup { searchAllPages(modelName) }
             if (result !is LookupResult.Success) return@coroutineScope result
             // 최신 목록을 받지 못해도 CAREFF 결과는 보여 준다. PHEV 전비만 비고 사용자가 입력한다.
             val vehicles = latestJob.await()?.let { mergeVehicles(result.value, it) } ?: result.value
             // PHEV 전비를 원래 모델명으로 찾은 뒤에 트림을 묶는다.
             LookupResult.Success(groupTrims(vehicles))
         }
+    }
+
+    /** 첫 페이지의 전체 건수를 보고 나머지 페이지를 동시에 받는다. 한 페이지라도 실패하면 검색 실패다. */
+    private suspend fun searchAllPages(modelName: String): LookupResult<List<VehicleFuelEconomy>> = coroutineScope {
+        val first = service.search(modelName)
+        val firstPage = first.toVehicles()
+        val pages = minOf(((first.totalCount() ?: 0) + PAGE_SIZE - 1) / PAGE_SIZE, MAX_PAGES)
+        if (firstPage !is LookupResult.Success || pages <= 1) return@coroutineScope firstPage
+        val rest = (2..pages).map { page -> async { service.search(modelName, pageNo = page).toVehicles() } }.awaitAll()
+        rest.firstOrNull { it !is LookupResult.Success }?.let { return@coroutineScope it }
+        LookupResult.Success(firstPage.value + rest.flatMap { (it as LookupResult.Success).value })
     }
 }
 
