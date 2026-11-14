@@ -170,6 +170,44 @@ class VehicleDataSourceTest {
         assertEquals(BigDecimal("18.6"), vehicle.kmPerLiter(FuelType.GASOLINE))
     }
 
+    private class PagedService(private val total: Int, private val failingPage: Int? = null) :
+        VehicleService, LatestFuelEconomyService {
+        val pages = mutableListOf<Int>()
+        override suspend fun search(modelName: String, pageNo: Int, numOfRows: Int, apiType: String): JsonElement {
+            synchronized(pages) { pages += pageNo }
+            if (pageNo == failingPage) throw IOException()
+            val item = """{"COMP_NM":"기아","MODEL_NM":"쏘렌토 $pageNo","YEAR":"2024","FUEL_NM":"경유","DISPLAY_EFF":"14"}"""
+            return Json.parseToJsonElement("""{"response":{"header":{"resultCode":"00"},"body":{"totalCount":"$total","items":{"item":[$item]}}}}""")
+        }
+        override suspend fun search(modelName: String, page: Int, perPage: Int): JsonElement =
+            Json.parseToJsonElement("""{"data":[]}""")
+    }
+
+    @Test
+    fun `results over one page fetch remaining pages in order`() {
+        val service = PagedService(total = 250)
+        val result = runBlocking { (DataGoKrVehicleRepository(service, service, isConfigured = true).search("쏘렌토") as LookupResult.Success).value }
+        assertEquals(listOf("쏘렌토 1", "쏘렌토 2", "쏘렌토 3"), result.map { it.model })
+        assertEquals(listOf(1, 2, 3), service.pages.sorted())
+    }
+
+    @Test
+    fun `page count is capped and single page makes one request`() {
+        val many = PagedService(total = 5000)
+        runBlocking { DataGoKrVehicleRepository(many, many, isConfigured = true).search("a") }
+        assertEquals(10, many.pages.size)
+        val one = PagedService(total = 100)
+        runBlocking { DataGoKrVehicleRepository(one, one, isConfigured = true).search("a") }
+        assertEquals(listOf(1), one.pages)
+    }
+
+    @Test
+    fun `failure on a later page fails the search`() {
+        val service = PagedService(total = 250, failingPage = 3)
+        val result = runBlocking { DataGoKrVehicleRepository(service, service, isConfigured = true).search("쏘렌토") }
+        assertEquals(LookupResult.Failure(LookupFailure.NETWORK), result)
+    }
+
     @Test
     fun `unconfigured relay does not call api and network error is reported`() {
         val service = object : VehicleService {
