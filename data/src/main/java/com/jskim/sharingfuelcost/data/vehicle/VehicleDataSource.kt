@@ -24,6 +24,7 @@ import java.math.BigDecimal
 private const val PAGE_SIZE = 100
 private const val GRADE_PHEV = "PHEV"
 private const val GRADE_FCEV = "FCEV"
+private const val CAR_TYPE_HYBRID = "하이브리드"
 private const val RESULT_OK = "00"
 private const val RESULT_NO_DATA = "03"
 private val NUMBER = Regex("""\d+(\.\d+)?""")
@@ -70,7 +71,10 @@ internal fun JsonElement.toVehicles(): LookupResult<List<VehicleFuelEconomy>> {
 }
 
 private fun JsonObject.toVehicle(): VehicleFuelEconomy? {
-    val fuelName = text("FUEL_NM").orEmpty()
+    // 하이브리드는 FUEL_NM이 "휘발유"라 일반 휘발유 차와 구분되도록 CAR_TYPE을 붙인다.
+    val fuelName = text("FUEL_NM").orEmpty().let {
+        if (text("CAR_TYPE") == CAR_TYPE_HYBRID && !it.contains(CAR_TYPE_HYBRID)) "$it($CAR_TYPE_HYBRID)" else it
+    }
     val fuelTypes = fuelTypesOf(fuelName).ifEmpty { return null }
     val displayEfficiency = text("DISPLAY_EFF")?.toPositiveNumber()
     val economies = if (isPlugInHybrid(fuelName)) {
@@ -151,10 +155,11 @@ internal class DataGoKrVehicleRepository(
         return coroutineScope {
             val latestJob = async { runCatching { latestService.search(modelName).toLatestVehicles() }.getOrNull() }
             val result = safeLookup { service.search(modelName).toVehicles() }
+            if (result !is LookupResult.Success) return@coroutineScope result
             // 최신 목록을 받지 못해도 CAREFF 결과는 보여 준다. PHEV 전비만 비고 사용자가 입력한다.
-            val latest = latestJob.await()
-            if (result !is LookupResult.Success || latest == null) return@coroutineScope result
-            LookupResult.Success(mergeVehicles(result.value, latest))
+            val vehicles = latestJob.await()?.let { mergeVehicles(result.value, it) } ?: result.value
+            // PHEV 전비를 원래 모델명으로 찾은 뒤에 트림을 묶는다.
+            LookupResult.Success(groupTrims(vehicles))
         }
     }
 }
